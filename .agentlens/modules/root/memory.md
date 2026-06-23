@@ -5,7 +5,7 @@
 ## Summary
 
 | High 🔴 | Medium 🟡 | Low 🟢 |
-| 1 | 0 | 15 |
+| 1 | 0 | 13 |
 
 ## 🔴 High Priority
 
@@ -31,15 +31,11 @@
 
 > Only checks file existence (metadata), does NOT read file content
 
-### `NOTE` (Quotio/Services/Proxy/CLIProxyManager.swift:244)
+### `NOTE` (Quotio/Services/Proxy/CLIProxyManager.swift:250)
 
 > Bridge mode default is registered in AppDelegate.applicationDidFinishLaunching()
 
-### `NOTE` (Quotio/Services/Proxy/CLIProxyManager.swift:362)
-
-> Changes take effect after proxy restart (CLIProxyAPI does not support live routing API)
-
-### `NOTE` (Quotio/Services/Proxy/CLIProxyManager.swift:1648)
+### `NOTE` (Quotio/Services/Proxy/CLIProxyManager.swift:2164)
 
 > Notification is handled by AtomFeedUpdateService polling
 
@@ -47,31 +43,27 @@
 
 > Actual fallback resolution happens at request time in ProxyBridge
 
-### `NOTE` (Quotio/ViewModels/QuotaViewModel.swift:279)
-
-> checkForProxyUpgrade() is now called inside startProxy()
-
-### `NOTE` (Quotio/ViewModels/QuotaViewModel.swift:352)
+### `NOTE` (Quotio/ViewModels/QuotaViewModel.swift:343)
 
 > Cursor and Trae are NOT auto-refreshed - user must use "Scan for IDEs" (issue #29)
 
-### `NOTE` (Quotio/ViewModels/QuotaViewModel.swift:360)
+### `NOTE` (Quotio/ViewModels/QuotaViewModel.swift:351)
 
 > Cursor and Trae removed from auto-refresh to address privacy concerns (issue #29)
 
-### `NOTE` (Quotio/ViewModels/QuotaViewModel.swift:1225)
+### `NOTE` (Quotio/ViewModels/QuotaViewModel.swift:1205)
 
 > Cursor and Trae removed from auto-refresh (issue #29)
 
-### `NOTE` (Quotio/ViewModels/QuotaViewModel.swift:1252)
+### `NOTE` (Quotio/ViewModels/QuotaViewModel.swift:1232)
 
 > Cursor and Trae require explicit user scan (issue #29)
 
-### `NOTE` (Quotio/ViewModels/QuotaViewModel.swift:1262)
+### `NOTE` (Quotio/ViewModels/QuotaViewModel.swift:1242)
 
 > Cursor and Trae removed - require explicit scan (issue #29)
 
-### `NOTE` (Quotio/ViewModels/QuotaViewModel.swift:1317)
+### `NOTE` (Quotio/ViewModels/QuotaViewModel.swift:1297)
 
 > Don't call detectActiveAccount() here - already set by switch operation
 

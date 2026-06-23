@@ -25,7 +25,7 @@ Symbol maps for 3 large files in this module.
 | 468 | fn | generateGlmCompatibilityYAML | (private) |
 | 498 | fn | toYAMLSections | (internal) |
 
-## Quotio/Models/MenuBarSettings.swift (632 lines)
+## Quotio/Models/MenuBarSettings.swift (630 lines)
 
 | Line | Kind | Name | Visibility |
 | ---- | ---- | ---- | ---------- |
@@ -52,16 +52,16 @@ Symbol maps for 3 large files in this module.
 | 404 | struct | MenuBarQuotaDisplayItem | (internal) |
 | 423 | class | MenuBarSettingsManager | (internal) |
 | 515 | method | init | (private) |
-| 553 | fn | saveSelectedItems | (private) |
-| 559 | fn | loadSelectedItems | (private) |
-| 567 | fn | addItem | (internal) |
-| 581 | fn | removeItem | (internal) |
-| 587 | fn | isSelected | (internal) |
-| 592 | fn | toggleItem | (internal) |
-| 602 | fn | pruneInvalidItems | (internal) |
-| 606 | fn | autoSelectNewAccounts | (internal) |
-| 621 | fn | enforceMaxItems | (private) |
-| 628 | fn | clampedMenuBarMax | (private) |
+| 551 | fn | saveSelectedItems | (private) |
+| 557 | fn | loadSelectedItems | (private) |
+| 565 | fn | addItem | (internal) |
+| 579 | fn | removeItem | (internal) |
+| 585 | fn | isSelected | (internal) |
+| 590 | fn | toggleItem | (internal) |
+| 600 | fn | pruneInvalidItems | (internal) |
+| 604 | fn | autoSelectNewAccounts | (internal) |
+| 619 | fn | enforceMaxItems | (private) |
+| 626 | fn | clampedMenuBarMax | (private) |
 
 ## Quotio/Models/Models.swift (658 lines)
 

@@ -4,9 +4,9 @@
 
 ## Overview
 
-- **Lines:** 1014
+- **Lines:** 1091
 - **Language:** Swift
-- **Symbols:** 11
+- **Symbols:** 14
 - **Public symbols:** 0
 
 ## Symbol Table
@@ -14,14 +14,17 @@
 | Line | Kind | Name | Visibility | Signature |
 | ---- | ---- | ---- | ---------- | --------- |
 | 9 | struct | DashboardScreen | (internal) | `struct DashboardScreen` |
-| 572 | fn | handleStepAction | (private) | `private func handleStepAction(_ step: GettingSt...` |
-| 583 | fn | showProviderPicker | (private) | `private func showProviderPicker()` |
-| 607 | fn | showAgentPicker | (private) | `private func showAgentPicker()` |
-| 808 | struct | GettingStartedStep | (internal) | `struct GettingStartedStep` |
-| 817 | struct | GettingStartedStepRow | (internal) | `struct GettingStartedStepRow` |
-| 872 | struct | KPICard | (internal) | `struct KPICard` |
-| 900 | struct | ProviderChip | (internal) | `struct ProviderChip` |
-| 924 | struct | FlowLayout | (internal) | `struct FlowLayout` |
-| 938 | fn | layout | (private) | `private func layout(proposal: ProposedViewSize,...` |
-| 966 | struct | QuotaProviderRow | (internal) | `struct QuotaProviderRow` |
+| 573 | fn | handleStepAction | (private) | `private func handleStepAction(_ step: GettingSt...` |
+| 584 | fn | showProviderPicker | (private) | `private func showProviderPicker()` |
+| 608 | fn | showAgentPicker | (private) | `private func showAgentPicker()` |
+| 746 | fn | dashboardAddressRow | (private) | `private func dashboardAddressRow(     title: St...` |
+| 784 | fn | copyToClipboard | (private) | `private func copyToClipboard(_ value: String)` |
+| 789 | fn | openManagementPage | (private) | `private func openManagementPage()` |
+| 885 | struct | GettingStartedStep | (internal) | `struct GettingStartedStep` |
+| 894 | struct | GettingStartedStepRow | (internal) | `struct GettingStartedStepRow` |
+| 949 | struct | KPICard | (internal) | `struct KPICard` |
+| 977 | struct | ProviderChip | (internal) | `struct ProviderChip` |
+| 1001 | struct | FlowLayout | (internal) | `struct FlowLayout` |
+| 1015 | fn | layout | (private) | `private func layout(proposal: ProposedViewSize,...` |
+| 1043 | struct | QuotaProviderRow | (internal) | `struct QuotaProviderRow` |
 

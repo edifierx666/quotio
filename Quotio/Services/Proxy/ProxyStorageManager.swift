@@ -1,16 +1,17 @@
 //
 //  ProxyStorageManager.swift
-//  Quotio - CLIProxyAPI GUI Wrapper
+//  Edx - CLIProxyAPI GUI Wrapper
 //
 //  Manages versioned proxy storage with symlink-based version switching.
 //
 //  Storage Layout:
-//  ~/.quotio/proxy/
-//   ├─ v1.2.3/
-//   │   └─ CLIProxyAPI
-//   ├─ v1.3.0/
-//   │   └─ CLIProxyAPI
-//   └─ current → v1.2.3
+//  ~/Library/Application Support/Edx/proxy/
+//   ├─ upstream/
+//   │   ├─ v1.2.3/
+//   │   │   └─ CLIProxyAPI
+//   │   └─ current → v1.2.3
+//   └─ plus-local/
+//       └─ current → v1.2.3
 //
 
 import Foundation
@@ -29,7 +30,7 @@ final class ProxyStorageManager {
         guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             fatalError("Application Support directory not found")
         }
-        self.proxyDir = appSupport.appendingPathComponent("Quotio/proxy")
+        self.proxyDir = appSupport.appendingPathComponent("Edx/proxy")
         try? fileManager.createDirectory(at: proxyDir, withIntermediateDirectories: true)
     }
     

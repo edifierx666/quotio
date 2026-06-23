@@ -49,12 +49,12 @@ final class AtomFeedUpdateService {
 
     // MARK: - Feed URLs
 
-    private static let quotioFeedURL = "https://github.com/nguyenphutrong/quotio/releases.atom"
+    private static let edxFeedURL: String? = nil
 
     // MARK: - Cache Keys
 
     private static let cliProxyCacheKey = "atomFeedCache_cliproxy"
-    private static let quotioCacheKey = "atomFeedCache_quotio"
+    private static let edxCacheKey = "atomFeedCache_edx"
 
     // MARK: - Polling Configuration
 
@@ -158,50 +158,9 @@ final class AtomFeedUpdateService {
         }
     }
 
-    /// Check for Quotio app updates using Atom feed.
-    /// This is a lightweight pre-check before Sparkle does its full update cycle.
+    /// Edx app update feed is disabled for the local fork; proxy binary updates stay enabled.
     func checkForQuotioUpdate(currentVersion: String?) async -> (latestVersion: String?, isNewRelease: Bool) {
-        let result = await fetchAtomFeed(
-            url: Self.quotioFeedURL,
-            cacheKey: Self.quotioCacheKey
-        )
-
-        switch result {
-        case .updated(let entries, let etag):
-            guard let latest = entries.first else {
-                return (nil, false)
-            }
-
-            saveCacheState(
-                cacheKey: Self.quotioCacheKey,
-                etag: etag,
-                latestVersion: latest.version
-            )
-
-            let isNewer: Bool
-            if let current = currentVersion {
-                isNewer = isNewerVersion(latest.version, than: current)
-            } else {
-                isNewer = true
-            }
-            return (latest.version, isNewer)
-
-        case .notModified:
-            if let cached = loadCacheState(cacheKey: Self.quotioCacheKey) {
-                let isNewer: Bool
-                if let current = currentVersion {
-                    isNewer = isNewerVersion(cached.latestVersion, than: current)
-                } else {
-                    isNewer = true
-                }
-                return (cached.latestVersion, isNewer)
-            }
-            return (nil, false)
-
-        case .error(let error):
-            NSLog("[AtomFeedUpdateService] Quotio feed error: \(error.localizedDescription)")
-            return (nil, false)
-        }
+        return (nil, false)
     }
 
     /// Force refresh without using cached ETag (for manual "Check for Updates" button)
@@ -329,7 +288,7 @@ final class AtomFeedUpdateService {
 
         var request = URLRequest(url: feedURL)
         request.addValue("application/atom+xml", forHTTPHeaderField: "Accept")
-        request.addValue("Quotio/1.0", forHTTPHeaderField: "User-Agent")
+        request.addValue("Edx/1.0", forHTTPHeaderField: "User-Agent")
 
         // Add conditional request headers if we have cached state
         if let cached = loadCacheState(cacheKey: cacheKey) {

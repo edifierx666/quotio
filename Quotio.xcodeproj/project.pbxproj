@@ -11,7 +11,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		78D386942EFBF30400C40FB6 /* Quotio.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Quotio.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		78D386942EFBF30400C40FB6 /* Edx.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Edx.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		78D386B22EFBF30500C40FB6 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		78D386B32EFBF30500C40FB6 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		78D386B42EFBF30500C40FB6 /* Local.xcconfig.example */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Local.xcconfig.example; sourceTree = "<group>"; };
@@ -62,7 +62,7 @@
 		78D386952EFBF30400C40FB6 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				78D386942EFBF30400C40FB6 /* Quotio.app */,
+				78D386942EFBF30400C40FB6 /* Edx.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -99,8 +99,8 @@
 			packageProductDependencies = (
 				78D386B12EFBF30500C40FB6 /* Sparkle */,
 			);
-			productName = Quotio;
-			productReference = 78D386942EFBF30400C40FB6 /* Quotio.app */;
+			productName = Edx;
+			productReference = 78D386942EFBF30400C40FB6 /* Edx.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -294,6 +294,8 @@
 				EXCLUDED_SOURCE_FILE_NAMES = AGENTS.md;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Quotio/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Edx;
+				INFOPLIST_KEY_CFBundleName = Edx;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -310,6 +312,7 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 0.18.0;
+				PRODUCT_NAME = Edx;
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -341,7 +344,8 @@
 				EXCLUDED_SOURCE_FILE_NAMES = AGENTS.md;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Quotio/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = Quotio;
+				INFOPLIST_KEY_CFBundleDisplayName = Edx;
+				INFOPLIST_KEY_CFBundleName = Edx;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -358,8 +362,8 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 0.18.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dev.quotio.desktop;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = dev.edx.desktop;
+				PRODUCT_NAME = Edx;
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

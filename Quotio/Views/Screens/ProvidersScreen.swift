@@ -448,8 +448,8 @@ struct ProvidersScreen: View {
     }
 
     private func syncCustomProvidersToConfig() {
-        // Silent failure - custom provider sync is non-critical
-        // Config will be synced on next proxy start
+        // Silent failure - custom provider sync is non-critical.
+        // Startup preserves the local config, so explicit provider edits are the sync boundary.
         try? customProviderService.syncToConfigFile(configPath: viewModel.proxyManager.configPath)
     }
 }

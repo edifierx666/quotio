@@ -3,9 +3,6 @@
 <plist version="1.0">
 <dict>
     <!-- Sparkle Auto-Update Configuration -->
-    <key>SUFeedURL</key>
-    <string>https://github.com/nguyenphutrong/quotio/releases/latest/download/appcast.xml</string>
-    
     <key>SUPublicEDKey</key>
     <string>HBpWFjUcNUuuZfdxhVlw2Mc87IT8tj1C68rufluZ0M4=</string>
     
@@ -20,17 +17,17 @@
     <string>14.0</string>
     
     <key>NSHumanReadableCopyright</key>
-    <string>Copyright © 2025 Quotio. All rights reserved.</string>
+    <string>Copyright © 2025 Edx. All rights reserved.</string>
     
     <!-- URL Scheme -->
     <key>CFBundleURLTypes</key>
     <array>
         <dict>
             <key>CFBundleURLName</key>
-            <string>Quotio</string>
+            <string>Edx</string>
             <key>CFBundleURLSchemes</key>
             <array>
-                <string>quotio</string>
+                <string>edx</string>
             </array>
         </dict>
     </array>

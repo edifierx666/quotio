@@ -520,11 +520,9 @@ final class MenuBarSettingsManager {
         }
         self.showMenuBarIcon = defaults.bool(forKey: showMenuBarIconKey)
         
-        // Show quota in menu bar - default true if not set
-        if defaults.object(forKey: showQuotaKey) == nil {
-            defaults.set(true, forKey: showQuotaKey)
-        }
-        self.showQuotaInMenuBar = defaults.bool(forKey: showQuotaKey)
+        // 菜单栏余额监控已从面板移除，历史开关也统一关闭。
+        defaults.set(false, forKey: showQuotaKey)
+        self.showQuotaInMenuBar = false
         
         if defaults.object(forKey: menuBarMaxItemsKey) == nil {
             defaults.set(Self.defaultMenuBarMaxItems, forKey: menuBarMaxItemsKey)

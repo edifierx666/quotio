@@ -1,6 +1,6 @@
 //
 //  SettingsScreen.swift
-//  Quotio
+//  Edx
 //
 
 import SwiftUI
@@ -9,24 +9,35 @@ import AppKit
 struct SettingsScreen: View {
     @Environment(QuotaViewModel.self) private var viewModel
     @State private var modeManager = OperatingModeManager.shared
+    @AppStorage("autoStartProxy") private var autoStartProxy = false
+    @AppStorage("showInDock") private var showInDock = true
     private let launchManager = LaunchAtLoginManager.shared
-    
+
+    private var showInDockBinding: Binding<Bool> {
+        Binding(
+            get: { showInDock },
+            set: { newValue in
+                let settings = MenuBarSettingsManager.shared
+                // 防止 Dock 和菜单栏图标同时关闭，避免用户失去打开 App 的入口。
+                if !newValue && !settings.showMenuBarIcon {
+                    settings.showMenuBarIcon = true
+                }
+
+                showInDock = newValue
+                NSApp.setActivationPolicy(newValue ? .regular : .accessory)
+            }
+        )
+    }
+
     var body: some View {
         @Bindable var lang = LanguageManager.shared
 
         Form {
-            // Operating Mode
-            OperatingModeSection()
-            
-            // Remote Server Configuration - Only in Remote Proxy Mode
-            if modeManager.isRemoteProxyMode {
-                RemoteServerSection()
-                UnifiedProxySettingsSection()
-            }
-
             // General Settings
             Section {
                 LaunchAtLoginToggle()
+                Toggle("settings.autoStartProxy".localized(), isOn: $autoStartProxy)
+                Toggle("settings.showInDock".localized(), isOn: showInDockBinding)
             } header: {
                 Label("settings.general".localized(), systemImage: "gearshape")
             }
@@ -51,52 +62,17 @@ struct SettingsScreen: View {
                 Label("settings.language".localized(), systemImage: "globe")
             }
 
-            // Troubleshooting
-            Section {
-                Button("troubleshooting.applyWorkaround".localized()) {
-                    CLIProxyManager.shared.applyBaseURLWorkaround()
-                }
-
-                Button("troubleshooting.restoreOriginal".localized()) {
-                    CLIProxyManager.shared.removeBaseURLWorkaround()
-                }
-            } header: {
-                Label("troubleshooting.title".localized(), systemImage: "hammer.fill")
-            } footer: {
-                Text("troubleshooting.description".localized())
-            }
-
             // Appearance
             AppearanceSettingsSection()
-            
-            // Privacy
-            PrivacySettingsSection()
-            
-            // Local Proxy Server - Only in Local Proxy Mode
-            if modeManager.isLocalProxyMode {
-                LocalProxyServerSection()
-                UnifiedProxySettingsSection()
-            }
-            
-            // Notifications
-            NotificationSettingsSection()
-            
-            // Quota Display
-            QuotaDisplaySettingsSection()
-            
-            // Usage Display
-            UsageDisplaySettingsSection()
-            
-            // Refresh Cadence
-            RefreshCadenceSettingsSection()
-            
+
+            // Proxy Updates
+            ProxyUpdateSettingsSection()
+
+            // Local configuration file
+            LocalPathsSection()
+
             // Menu Bar
             MenuBarSettingsSection()
-            
-            // Paths - Only in Local Proxy Mode
-            if modeManager.isLocalProxyMode {
-                LocalPathsSection()
-            }
         }
         .formStyle(.grouped)
         .navigationTitle("nav.settings".localized())
@@ -392,15 +368,13 @@ struct UnifiedProxySettingsSection: View {
     }
     
     var body: some View {
-        if !isAPIAvailable {
+        if !isAPIAvailable && !modeManager.isLocalProxyMode {
             // Show placeholder when API is not available
             Section {
                 HStack {
                     Image(systemName: "network.slash")
                         .foregroundStyle(.secondary)
-                    Text(modeManager.isLocalProxyMode 
-                         ? "settings.proxy.startToConfigureAdvanced".localized()
-                         : "settings.remote.noConnection".localized())
+                    Text("settings.remote.noConnection".localized())
                         .foregroundStyle(.secondary)
                 }
             } header: {
@@ -575,22 +549,45 @@ struct UnifiedProxySettingsSection: View {
         isLoading = true
         isLoadingConfig = true
         loadError = nil
-        
+
+        if modeManager.isLocalProxyMode {
+            guard let config = viewModel.proxyManager.loadLocalConfigSnapshot() else {
+                loadError = "settings.proxy.startToConfigureAdvanced".localized()
+                isLoading = false
+                isLoadingConfig = false
+                return
+            }
+
+            proxyURL = config.proxyURL ?? ""
+            routingStrategy = config.routingStrategy
+            requestRetry = config.requestRetry
+            maxRetryInterval = config.maxRetryInterval
+            loggingToFile = config.loggingToFile
+            requestLog = config.requestLog
+            debugMode = config.debug
+            switchProject = config.switchProject
+            switchPreviewModel = config.switchPreviewModel
+            proxyURLValidation = ProxyURLValidator.validate(proxyURL)
+            isLoading = false
+
+            try? await Task.sleep(for: .milliseconds(100))
+            isLoadingConfig = false
+            return
+        }
+
         guard let apiClient = viewModel.apiClient else {
-            loadError = modeManager.isLocalProxyMode
-                ? "settings.proxy.startToConfigureAdvanced".localized()
-                : "settings.remote.noConnection".localized()
+            loadError = "settings.remote.noConnection".localized()
             isLoading = false
             isLoadingConfig = false
             return
         }
-        
+
         do {
             async let configTask = apiClient.fetchConfig()
             async let routingTask = apiClient.getRoutingStrategy()
-            
+
             let (config, fetchedStrategy) = try await (configTask, routingTask)
-            
+
             proxyURL = config.proxyURL ?? ""
             routingStrategy = fetchedStrategy
             requestRetry = config.requestRetry ?? 3
@@ -602,7 +599,7 @@ struct UnifiedProxySettingsSection: View {
             switchPreviewModel = config.quotaExceeded?.switchPreviewModel ?? true
             proxyURLValidation = ProxyURLValidator.validate(proxyURL)
             isLoading = false
-            
+
             try? await Task.sleep(for: .milliseconds(100))
             isLoadingConfig = false
         } catch {
@@ -612,24 +609,34 @@ struct UnifiedProxySettingsSection: View {
         }
     }
     
-    /// Persists the upstream proxy URL to both UserDefaults and the running proxy instance.
+    /// Persists the upstream proxy URL with mode-specific ownership.
     ///
-    /// The URL is first saved to UserDefaults so it survives app restarts (used by
-    /// `CLIProxyManager.syncProxyURLInConfig()` during proxy startup), then sent to the
-    /// proxy API to take effect immediately. Only valid or empty URLs are saved.
+    /// Local mode writes the user-owned config file and then updates the running proxy.
+    /// Remote mode only updates the remote proxy so it cannot leak into local startup config.
     private func saveProxyURL() async {
+        let sanitizedURL: String?
         if proxyURL.isEmpty {
-            UserDefaults.standard.set("", forKey: "proxyURL")
+            sanitizedURL = nil
         } else if proxyURLValidation == .valid {
-            UserDefaults.standard.set(ProxyURLValidator.sanitize(proxyURL), forKey: "proxyURL")
+            sanitizedURL = ProxyURLValidator.sanitize(proxyURL)
+        } else {
+            return
+        }
+
+        if modeManager.isLocalProxyMode {
+            guard viewModel.proxyManager.updateConfigProxyURL(sanitizedURL, restartIfRunning: false) else {
+                NSLog("[RemoteSettings] Failed to save proxy URL to local config")
+                return
+            }
+            NotificationCenter.default.post(name: .quotioLocalProxyConfigDidChange, object: nil)
         }
 
         guard let apiClient = viewModel.apiClient else { return }
         do {
-            if proxyURL.isEmpty {
+            if let sanitizedURL {
+                try await apiClient.setProxyURL(sanitizedURL)
+            } else {
                 try await apiClient.deleteProxyURL()
-            } else if proxyURLValidation == .valid {
-                try await apiClient.setProxyURL(ProxyURLValidator.sanitize(proxyURL))
             }
         } catch {
             NSLog("[RemoteSettings] Failed to save proxy URL: \(error)")
@@ -637,6 +644,14 @@ struct UnifiedProxySettingsSection: View {
     }
     
     private func saveRoutingStrategy(_ strategy: String) async {
+        if modeManager.isLocalProxyMode {
+            guard viewModel.proxyManager.updateConfigRoutingStrategy(strategy) else {
+                NSLog("[LocalSettings] Failed to save routing strategy to local config")
+                return
+            }
+            NotificationCenter.default.post(name: .quotioLocalProxyConfigDidChange, object: nil)
+        }
+
         guard let apiClient = viewModel.apiClient else { return }
         do {
             try await apiClient.setRoutingStrategy(strategy)
@@ -644,8 +659,16 @@ struct UnifiedProxySettingsSection: View {
             NSLog("[RemoteSettings] Failed to save routing strategy: \(error)")
         }
     }
-    
+
     private func saveSwitchProject(_ enabled: Bool) async {
+        if modeManager.isLocalProxyMode {
+            guard viewModel.proxyManager.updateConfigSwitchProject(enabled) else {
+                NSLog("[LocalSettings] Failed to save switch project to local config")
+                return
+            }
+            NotificationCenter.default.post(name: .quotioLocalProxyConfigDidChange, object: nil)
+        }
+
         guard let apiClient = viewModel.apiClient else { return }
         do {
             try await apiClient.setQuotaExceededSwitchProject(enabled)
@@ -653,8 +676,16 @@ struct UnifiedProxySettingsSection: View {
             NSLog("[RemoteSettings] Failed to save switch project: \(error)")
         }
     }
-    
+
     private func saveSwitchPreviewModel(_ enabled: Bool) async {
+        if modeManager.isLocalProxyMode {
+            guard viewModel.proxyManager.updateConfigSwitchPreviewModel(enabled) else {
+                NSLog("[LocalSettings] Failed to save switch preview model to local config")
+                return
+            }
+            NotificationCenter.default.post(name: .quotioLocalProxyConfigDidChange, object: nil)
+        }
+
         guard let apiClient = viewModel.apiClient else { return }
         do {
             try await apiClient.setQuotaExceededSwitchPreviewModel(enabled)
@@ -662,8 +693,16 @@ struct UnifiedProxySettingsSection: View {
             NSLog("[RemoteSettings] Failed to save switch preview model: \(error)")
         }
     }
-    
+
     private func saveRequestRetry(_ count: Int) async {
+        if modeManager.isLocalProxyMode {
+            guard viewModel.proxyManager.updateConfigRequestRetry(count) else {
+                NSLog("[LocalSettings] Failed to save request retry to local config")
+                return
+            }
+            NotificationCenter.default.post(name: .quotioLocalProxyConfigDidChange, object: nil)
+        }
+
         guard let apiClient = viewModel.apiClient else { return }
         do {
             try await apiClient.setRequestRetry(count)
@@ -671,8 +710,16 @@ struct UnifiedProxySettingsSection: View {
             NSLog("[RemoteSettings] Failed to save request retry: \(error)")
         }
     }
-    
+
     private func saveMaxRetryInterval(_ seconds: Int) async {
+        if modeManager.isLocalProxyMode {
+            guard viewModel.proxyManager.updateConfigMaxRetryInterval(seconds) else {
+                NSLog("[LocalSettings] Failed to save max retry interval to local config")
+                return
+            }
+            NotificationCenter.default.post(name: .quotioLocalProxyConfigDidChange, object: nil)
+        }
+
         guard let apiClient = viewModel.apiClient else { return }
         do {
             try await apiClient.setMaxRetryInterval(seconds)
@@ -680,8 +727,16 @@ struct UnifiedProxySettingsSection: View {
             NSLog("[RemoteSettings] Failed to save max retry interval: \(error)")
         }
     }
-    
+
     private func saveLoggingToFile(_ enabled: Bool) async {
+        if modeManager.isLocalProxyMode {
+            guard viewModel.proxyManager.updateConfigLogging(enabled: enabled) else {
+                NSLog("[LocalSettings] Failed to save logging to file to local config")
+                return
+            }
+            NotificationCenter.default.post(name: .quotioLocalProxyConfigDidChange, object: nil)
+        }
+
         guard let apiClient = viewModel.apiClient else { return }
         do {
             try await apiClient.setLoggingToFile(enabled)
@@ -689,8 +744,16 @@ struct UnifiedProxySettingsSection: View {
             NSLog("[RemoteSettings] Failed to save logging to file: \(error)")
         }
     }
-    
+
     private func saveRequestLog(_ enabled: Bool) async {
+        if modeManager.isLocalProxyMode {
+            guard viewModel.proxyManager.updateConfigRequestLog(enabled) else {
+                NSLog("[LocalSettings] Failed to save request log to local config")
+                return
+            }
+            NotificationCenter.default.post(name: .quotioLocalProxyConfigDidChange, object: nil)
+        }
+
         guard let apiClient = viewModel.apiClient else { return }
         do {
             try await apiClient.setRequestLog(enabled)
@@ -698,8 +761,16 @@ struct UnifiedProxySettingsSection: View {
             NSLog("[RemoteSettings] Failed to save request log: \(error)")
         }
     }
-    
+
     private func saveDebugMode(_ enabled: Bool) async {
+        if modeManager.isLocalProxyMode {
+            guard viewModel.proxyManager.updateConfigDebug(enabled) else {
+                NSLog("[LocalSettings] Failed to save debug mode to local config")
+                return
+            }
+            NotificationCenter.default.post(name: .quotioLocalProxyConfigDidChange, object: nil)
+        }
+
         guard let apiClient = viewModel.apiClient else { return }
         do {
             try await apiClient.setDebug(enabled)
@@ -716,7 +787,6 @@ struct LocalProxyServerSection: View {
     @AppStorage("autoStartProxy") private var autoStartProxy = false
     @AppStorage("autoStartTunnel") private var autoStartTunnel = false
     @AppStorage("autoRestartTunnel") private var autoRestartTunnel = false
-    @AppStorage("allowNetworkAccess") private var allowNetworkAccess = false
     @State private var portText: String = ""
     @State private var isLoadingConfig = false  // Prevents onChange from firing during initial load
     
@@ -761,12 +831,13 @@ struct LocalProxyServerSection: View {
             Toggle("settings.autoRestartTunnel".localized(), isOn: $autoRestartTunnel)
                 .disabled(!viewModel.tunnelManager.installation.isInstalled)
                 
-            NetworkAccessSection(allowNetworkAccess: $allowNetworkAccess)
-                .onChange(of: allowNetworkAccess) { _, newValue in
+            NetworkAccessSection(allowNetworkAccess: Binding(
+                get: { viewModel.proxyManager.allowNetworkAccess },
+                set: { newValue in
                     guard !isLoadingConfig else { return }
                     viewModel.proxyManager.allowNetworkAccess = newValue
                 }
-                
+            ))
 
         } header: {
             Label("settings.proxyServer".localized(), systemImage: "server.rack")
@@ -821,22 +892,37 @@ struct NetworkAccessSection: View {
 
 struct LocalPathsSection: View {
     @Environment(QuotaViewModel.self) private var viewModel
-    
+
     var body: some View {
         Section {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("本地持久配置文件", systemImage: "doc.text")
+                    .font(.headline)
+
+                Text("Edx 只使用本地这一份 config.yaml。启动程序、启动代理、认证和代理更新都不会再生成第二份 YAML 配置文件。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                PathLabel(
+                    path: viewModel.proxyManager.configPath,
+                    canOpenFile: true
+                )
+            }
+            .padding(.vertical, 4)
+
             LabeledContent("settings.binary".localized()) {
                 PathLabel(path: viewModel.proxyManager.effectiveBinaryPath)
             }
-            
-            LabeledContent("settings.config".localized()) {
-                PathLabel(path: viewModel.proxyManager.configPath)
-            }
-            
+
             LabeledContent("settings.authDir".localized()) {
                 PathLabel(path: viewModel.proxyManager.authDir)
             }
         } header: {
             Label("settings.paths".localized(), systemImage: "folder")
+        } footer: {
+            Text("如果你要手动修改配置，请只编辑上面的 config.yaml；Edx 不再使用 /tmp 下的配置副本。")
+                .font(.caption)
         }
     }
 }
@@ -845,25 +931,60 @@ struct LocalPathsSection: View {
 
 struct PathLabel: View {
     let path: String
-    
+    var canOpenFile = false
+
     var body: some View {
-        HStack {
+        HStack(spacing: 8) {
             Text(path)
                 .font(.system(.caption, design: .monospaced))
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .textSelection(.enabled)
-            
+                .frame(maxWidth: .infinity, alignment: .trailing)
+
             Button {
-                let pasteboard = NSPasteboard.general
-                pasteboard.clearContents()
-                pasteboard.setString(path, forType: .string)
+                copyPath()
             } label: {
                 Image(systemName: "doc.on.doc")
                     .font(.caption)
             }
             .buttonStyle(.borderless)
+            .help("复制路径")
+
+            Button {
+                revealInFinder()
+            } label: {
+                Image(systemName: "folder")
+                    .font(.caption)
+            }
+            .buttonStyle(.borderless)
+            .help("在 Finder 中显示")
+
+            if canOpenFile {
+                Button {
+                    openFile()
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.caption)
+                }
+                .buttonStyle(.borderless)
+                .help("打开配置文件")
+            }
         }
+    }
+
+    private func copyPath() {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(path, forType: .string)
+    }
+
+    private func revealInFinder() {
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+    }
+
+    private func openFile() {
+        NSWorkspace.shared.open(URL(fileURLWithPath: path))
     }
 }
 
@@ -1668,140 +1789,30 @@ private struct AvailableVersionRow: View {
 // MARK: - Menu Bar Settings Section
 
 struct MenuBarSettingsSection: View {
-    @Environment(QuotaViewModel.self) private var viewModel
     private let settings = MenuBarSettingsManager.shared
     @AppStorage("showInDock") private var showInDock = true
-    @State private var showTruncationAlert = false
-    @State private var pendingMaxItems: Int?
-    
+
     private var showMenuBarIconBinding: Binding<Bool> {
         Binding(
             get: { settings.showMenuBarIcon },
             set: { newValue in
-                // Prevent disabling both dock and menu bar icon (user would have no way to access app)
+                // 防止 Dock 和菜单栏图标同时关闭，避免用户失去打开 App 的入口。
                 if !newValue && !showInDock {
-                    // Re-enable dock if user tries to disable menu bar icon while dock is already disabled
                     showInDock = true
-                    // activation policy will be set by showInDockBinding automatically
                 }
                 settings.showMenuBarIcon = newValue
             }
         )
     }
 
-    private var showInDockBinding: Binding<Bool> {
-        Binding(
-            get: { showInDock },
-            set: { newValue in
-                // Prevent disabling both dock and menu bar icon (user would have no way to access app)
-                if !newValue && !settings.showMenuBarIcon {
-                    // Re-enable menu bar icon if user tries to disable dock while menu bar is already disabled
-                    settings.showMenuBarIcon = true
-                }
-
-                // Update the value
-                showInDock = newValue
-
-                // This is the ONLY place where activation policy is changed based on user settings
-                // - true: dock icon always visible, even when window is closed
-                // - false: dock icon never visible
-                NSApp.setActivationPolicy(newValue ? .regular : .accessory)
-            }
-        )
-    }
-    
-    private var showQuotaBinding: Binding<Bool> {
-        Binding(
-            get: { settings.showQuotaInMenuBar },
-            set: { settings.showQuotaInMenuBar = $0 }
-        )
-    }
-    
-    private var colorModeBinding: Binding<MenuBarColorMode> {
-        Binding(
-            get: { settings.colorMode },
-            set: { settings.colorMode = $0 }
-        )
-    }
-    
-    private var maxItemsBinding: Binding<Int> {
-        Binding(
-            get: { settings.menuBarMaxItems },
-            set: { newValue in
-                let clamped = min(max(newValue, MenuBarSettingsManager.minMenuBarItems), MenuBarSettingsManager.maxMenuBarItems)
-
-                // Check if reducing max items would truncate current selection
-                if clamped < settings.menuBarMaxItems && settings.selectedItems.count > clamped {
-                    pendingMaxItems = clamped
-                    showTruncationAlert = true
-                } else {
-                    settings.menuBarMaxItems = clamped
-                    viewModel.syncMenuBarSelection()
-                }
-            }
-        )
-    }
-    
     var body: some View {
         Section {
-            Toggle("settings.showInDock".localized(), isOn: showInDockBinding)
-            
             Toggle("settings.menubar.showIcon".localized(), isOn: showMenuBarIconBinding)
-            
-            if settings.showMenuBarIcon {
-                Toggle("settings.menubar.showQuota".localized(), isOn: showQuotaBinding)
-                
-                if settings.showQuotaInMenuBar {
-                    HStack {
-                        Text("settings.menubar.maxItems".localized())
-                        Spacer()
-                        Text("\(settings.menuBarMaxItems)")
-                            .monospacedDigit()
-                            .foregroundStyle(.primary)
-                        Stepper(
-                            "",
-                            value: maxItemsBinding,
-                            in: MenuBarSettingsManager.minMenuBarItems...MenuBarSettingsManager.maxMenuBarItems,
-                            step: 1
-                        )
-                        .labelsHidden()
-                    }
-                    
-                    Picker("settings.menubar.colorMode".localized(), selection: colorModeBinding) {
-                        Text("settings.menubar.colored".localized()).tag(MenuBarColorMode.colored)
-                        Text("settings.menubar.monochrome".localized()).tag(MenuBarColorMode.monochrome)
-                    }
-                    .pickerStyle(.segmented)
-                }
-            }
         } header: {
             Label("settings.menubar".localized(), systemImage: "menubar.rectangle")
         } footer: {
-            Text(String(
-                format: "settings.menubar.help".localized(),
-                settings.menuBarMaxItems
-            ))
-            .font(.caption)
-        }
-        .alert("menubar.truncation.title".localized(), isPresented: $showTruncationAlert) {
-            Button("action.cancel".localized(), role: .cancel) {
-                pendingMaxItems = nil
-            }
-            Button("action.ok".localized(), role: .destructive) {
-                if let newMax = pendingMaxItems {
-                    settings.menuBarMaxItems = newMax
-                    viewModel.syncMenuBarSelection()
-                    pendingMaxItems = nil
-                }
-            }
-        } message: {
-            if let newMax = pendingMaxItems {
-                Text(String(
-                    format: "menubar.truncation.message".localized(),
-                    settings.selectedItems.count,
-                    newMax
-                ))
-            }
+            Text("settings.menubar.help".localized())
+                .font(.caption)
         }
     }
 }
@@ -1905,7 +1916,7 @@ struct AboutTab: View {
                 .font(.system(size: 48))
                 .foregroundStyle(.blue)
             
-            Text("Quotio")
+            Text("Edx")
                 .font(.title)
                 .fontWeight(.bold)
             
@@ -2013,7 +2024,7 @@ struct AboutScreen: View {
             
             // App Name & Tagline
             VStack(spacing: 8) {
-                Text("Quotio")
+                Text("Edx")
                     .font(.largeTitle)
                     .fontWeight(.bold)
                 
@@ -2080,7 +2091,7 @@ struct AboutScreen: View {
                 spacing: 12
             ) {
                 LinkCard(
-                    title: "GitHub: Quotio",
+                    title: "GitHub: Edx",
                     icon: "link",
                     color: .blue,
                     url: URL(string: "https://github.com/nguyenphutrong/quotio")!
@@ -2587,7 +2598,7 @@ struct ProxyBinarySourceSelectionSheet: View {
                     .font(.title2)
                     .fontWeight(.bold)
 
-                Text("Select which proxy family Quotio should use by default. You can change this later in About > Proxy Updates.")
+                Text("Select which proxy family Edx should use by default. You can change this later in About > Proxy Updates.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }

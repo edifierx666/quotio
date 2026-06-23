@@ -55,27 +55,10 @@ final class AppBootstrap {
     }
 
     private func performFullInitialization() async {
-        // Scan auth files immediately (fast filesystem scan)
-        // This allows menu bar to show providers before quota API calls complete
-        await viewModel.loadDirectAuthFiles()
-
-        // Setup menu bar immediately so user can open it while data loads
         statusBarManager.setViewModel(viewModel)
         updateStatusBar()
 
-        // Listen for quota data changes to update menu bar even when window is closed
-        NotificationCenter.default.addObserver(
-            forName: QuotaViewModel.quotaDataDidChangeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.updateStatusBar()
-                StatusBarManager.shared.rebuildMenuInPlace()
-            }
-        }
-
-        // Load data in background (includes proxy auto-start if enabled)
+        // Load only the core services that remain visible after removing quota/provider panels.
         await viewModel.initialize()
 
         #if canImport(Sparkle)
@@ -84,88 +67,13 @@ final class AppBootstrap {
     }
 
     func updateStatusBar() {
-        // Menu bar should show quota data regardless of proxy status
-        // The quota is fetched directly and doesn't need proxy
-        let hasQuotaData = !viewModel.providerQuotas.isEmpty
-
         statusBarManager.updateStatusBar(
-            items: quotaItems,
+            items: [],
             colorMode: menuBarSettings.colorMode,
-            isRunning: hasQuotaData,
+            isRunning: viewModel.proxyManager.proxyStatus.running,
             showMenuBarIcon: menuBarSettings.showMenuBarIcon,
-            showQuota: menuBarSettings.showQuotaInMenuBar
+            showQuota: false
         )
-    }
-
-    private var quotaItems: [MenuBarQuotaDisplayItem] {
-        guard menuBarSettings.showQuotaInMenuBar else { return [] }
-
-        var items: [MenuBarQuotaDisplayItem] = []
-
-        for selectedItem in menuBarSettings.selectedItems {
-            guard let provider = selectedItem.aiProvider else { continue }
-
-            var displayPercent: Double = -1
-            var isForbidden = false
-
-            if let accountQuotas = viewModel.providerQuotas[provider],
-               let quotaData = resolveQuotaData(
-                   for: selectedItem,
-                   provider: provider,
-                   accountQuotas: accountQuotas
-               ) {
-                isForbidden = quotaData.isForbidden
-                if !quotaData.models.isEmpty {
-                    let models = quotaData.models.map { (name: $0.name, percentage: $0.percentage) }
-                    displayPercent = menuBarSettings.totalUsagePercent(models: models)
-                }
-            }
-
-            items.append(MenuBarQuotaDisplayItem(
-                id: selectedItem.id,
-                providerSymbol: provider.menuBarSymbol,
-                accountShort: selectedItem.accountKey,
-                percentage: displayPercent,
-                provider: provider,
-                isForbidden: isForbidden
-            ))
-        }
-
-        return items
-    }
-
-    private func resolveQuotaData(
-        for selectedItem: MenuBarQuotaItem,
-        provider: AIProvider,
-        accountQuotas: [String: ProviderQuotaData]
-    ) -> ProviderQuotaData? {
-        if let quotaData = accountQuotas[selectedItem.accountKey] {
-            return quotaData
-        }
-
-        let cleanKey = selectedItem.accountKey.replacingOccurrences(of: ".json", with: "")
-        if let quotaData = accountQuotas[cleanKey] {
-            return quotaData
-        }
-
-        guard provider == .codex else { return nil }
-        let normalizedSelected = normalizedCodexKey(cleanKey)
-        return accountQuotas.first { normalizedCodexKey($0.key) == normalizedSelected }?.value
-    }
-
-    private func normalizedCodexKey(_ key: String) -> String {
-        let cleanKey = key.replacingOccurrences(of: ".json", with: "")
-        if let email = extractEmail(from: cleanKey) {
-            return email.lowercased()
-        }
-        return cleanKey.lowercased()
-    }
-
-    private func extractEmail(from text: String) -> String? {
-        let pattern = #"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}"#
-        let options: String.CompareOptions = [.regularExpression, .caseInsensitive]
-        guard let range = text.range(of: pattern, options: options) else { return nil }
-        return String(text[range])
     }
 }
 
@@ -188,7 +96,7 @@ struct QuotioApp: App {
 
 
     var body: some Scene {
-        Window("Quotio", id: "main") {
+        Window("Edx", id: "main") {
             ContentView()
                 .id(languageManager.currentLanguage) // Force re-render on language change
                 .environment(viewModel)
@@ -208,46 +116,17 @@ struct QuotioApp: App {
                 }
                 .onChange(of: viewModel.proxyManager.proxyStatus.running) {
                     bootstrap.updateStatusBar()
-                }
-                .onChange(of: viewModel.isLoadingQuotas) {
-                    bootstrap.updateStatusBar()
-                    // Rebuild menu when loading state changes so loader updates
                     statusBarManager.rebuildMenuInPlace()
                 }
                 .onChange(of: languageManager.currentLanguage) { _, _ in
                     // Rebuild menu bar when language changes
                     statusBarManager.rebuildMenuInPlace()
                 }
-                .onChange(of: menuBarSettings.showQuotaInMenuBar) {
-                    bootstrap.updateStatusBar()
-                }
                 .onChange(of: menuBarSettings.showMenuBarIcon) {
                     bootstrap.updateStatusBar()
                 }
-                .onChange(of: menuBarSettings.selectedItems) {
-                    bootstrap.updateStatusBar()
-                }
-                .onChange(of: menuBarSettings.colorMode) {
-                    bootstrap.updateStatusBar()
-                }
-                .onChange(of: menuBarSettings.totalUsageMode) {
-                    bootstrap.updateStatusBar()
-                    statusBarManager.rebuildMenuInPlace()
-                }
-                .onChange(of: menuBarSettings.modelAggregationMode) {
-                    bootstrap.updateStatusBar()
-                    statusBarManager.rebuildMenuInPlace()
-                }
                 .onChange(of: modeManager.currentMode) {
                     bootstrap.updateStatusBar()
-                }
-                .onChange(of: viewModel.providerQuotas.count) {
-                    bootstrap.updateStatusBar()
-                    statusBarManager.rebuildMenuInPlace()
-                }
-                .onChange(of: viewModel.directAuthFiles.count) {
-                    bootstrap.updateStatusBar()
-                    statusBarManager.rebuildMenuInPlace()
                 }
                 .sheet(isPresented: $showOnboarding) {
                     OnboardingFlow {
@@ -319,8 +198,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { @MainActor in
             await AppBootstrap.shared.initializeIfNeeded()
 
-            // Start background polling for CLIProxyAPI updates (every 5 minutes)
-            // Uses Atom feed with ETag caching for efficiency
+            // 保留代理更新轮询，但不恢复菜单栏余额监控。
             AtomFeedUpdateService.shared.startPolling(
                 getCurrentSource: { CLIProxyManager.shared.selectedBinarySource },
                 getCurrentVersion: { CLIProxyManager.shared.currentVersion ?? CLIProxyManager.shared.installedProxyVersion }
@@ -595,9 +473,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 struct ContentView: View {
     @Environment(QuotaViewModel.self) private var viewModel
-    @AppStorage("loggingToFile") private var loggingToFile = true
-    @State private var modeManager = OperatingModeManager.shared
-    
+
     var body: some View {
         @Bindable var vm = viewModel
         
@@ -605,96 +481,38 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 List(selection: $vm.currentPage) {
                     Section {
-                        // Always visible
                         Label("nav.dashboard".localized(), systemImage: "gauge.with.dots.needle.33percent")
                             .tag(NavigationPage.dashboard)
-                        
-                        Label("nav.quota".localized(), systemImage: "chart.bar.fill")
-                            .tag(NavigationPage.quota)
-                        
-                        Label(modeManager.isMonitorMode ? "nav.accounts".localized() : "nav.providers".localized(), 
-                              systemImage: "person.2.badge.key")
-                            .tag(NavigationPage.providers)
-                        
-                        // Proxy mode only (local or remote)
-                        if modeManager.isProxyMode {
-                            HStack(spacing: 6) {
-                                Label("nav.fallback".localized(), systemImage: "arrow.triangle.branch")
-                                ExperimentalBadge()
-                            }
-                            .tag(NavigationPage.fallback)
 
-                            if modeManager.currentMode.supportsAgentConfig {
-                                Label("nav.agents".localized(), systemImage: "terminal")
-                                    .tag(NavigationPage.agents)
-                            }
-                            
-                            Label("nav.apiKeys".localized(), systemImage: "key.horizontal")
-                                .tag(NavigationPage.apiKeys)
-                            
-                            if modeManager.isLocalProxyMode && loggingToFile {
-                                Label("nav.logs".localized(), systemImage: "doc.text")
-                                    .tag(NavigationPage.logs)
-                            }
-                        }
-                        
                         Label("nav.settings".localized(), systemImage: "gearshape")
                             .tag(NavigationPage.settings)
-                        
+
                         Label("nav.about".localized(), systemImage: "info.circle")
                             .tag(NavigationPage.about)
                     }
                 }
-                
-                // Control section at bottom - current mode badge + status
+
                 VStack(spacing: 0) {
                     Divider()
-                    
-                    // Current Mode Badge (replaces ModeSwitcherRow)
-                    CurrentModeBadge()
+
+                    ProxyStatusRow(viewModel: viewModel)
                         .padding(.horizontal, 16)
-                        .padding(.top, 10)
-                        .padding(.bottom, 6)
-                    
-                    // Status row - different per mode
-                    Group {
-                        if modeManager.isLocalProxyMode {
-                            ProxyStatusRow(viewModel: viewModel)
-                        } else if modeManager.isRemoteProxyMode {
-                            RemoteStatusRow()
-                        } else {
-                            QuotaRefreshStatusRow(viewModel: viewModel)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 10)
+                        .padding(.vertical, 10)
                 }
                 .background(.regularMaterial)
             }
-            .navigationTitle("Quotio")
+            .navigationTitle("Edx")
             .toolbar {
                 ToolbarItem {
-                    if modeManager.isLocalProxyMode {
-                        // Local proxy mode: proxy controls
-                        if viewModel.proxyManager.isStarting {
-                            SmallProgressView()
-                        } else {
-                            Button {
-                                Task { await viewModel.toggleProxy() }
-                            } label: {
-                                Image(systemName: viewModel.proxyManager.proxyStatus.running ? "stop.fill" : "play.fill")
-                            }
-                            .help(viewModel.proxyManager.proxyStatus.running ? "action.stopProxy".localized() : "action.startProxy".localized())
-                        }
+                    if viewModel.proxyManager.isStarting {
+                        SmallProgressView()
                     } else {
-                        // Monitor or remote mode: refresh button
                         Button {
-                            Task { await viewModel.refreshQuotasDirectly() }
+                            Task { await viewModel.toggleProxy() }
                         } label: {
-                            Image(systemName: "arrow.clockwise")
+                            Image(systemName: viewModel.proxyManager.proxyStatus.running ? "stop.fill" : "play.fill")
                         }
-                        .help("action.refreshQuota".localized())
-                        .disabled(viewModel.isLoadingQuotas)
+                        .help(viewModel.proxyManager.proxyStatus.running ? "action.stopProxy".localized() : "action.startProxy".localized())
                     }
                 }
             }
@@ -702,22 +520,10 @@ struct ContentView: View {
             switch viewModel.currentPage {
             case .dashboard:
                 DashboardScreen()
-            case .quota:
-                QuotaScreen()
-            case .providers:
-                ProvidersScreen()
-            case .fallback:
-                FallbackScreen()
-            case .agents:
-                AgentSetupScreen()
-            case .apiKeys:
-                APIKeysScreen()
-            case .logs:
-                LogsScreen()
-            case .settings:
-                SettingsScreen()
             case .about:
                 AboutScreen()
+            default:
+                SettingsScreen()
             }
         }
     }

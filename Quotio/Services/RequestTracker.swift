@@ -1,6 +1,6 @@
 //
 //  RequestTracker.swift
-//  Quotio - Request History Tracking Service
+//  Edx - Request History Tracking Service
 //
 //  This service tracks API requests through ProxyBridge callbacks.
 //  Request history is persisted to disk for session continuity.
@@ -38,16 +38,16 @@ final class RequestTracker {
     private var store: RequestHistoryStore = .empty
     
     /// Queue for file operations
-    private let fileQueue = DispatchQueue(label: "dev.quotio.desktop.request-tracker-file")
+    private let fileQueue = DispatchQueue(label: "dev.edx.desktop.request-tracker-file")
     
     /// Storage file URL
     private var storageURL: URL {
         guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             fatalError("Application Support directory not found")
         }
-        let quotioDir = appSupport.appendingPathComponent("Quotio")
-        try? FileManager.default.createDirectory(at: quotioDir, withIntermediateDirectories: true)
-        return quotioDir.appendingPathComponent("request-history.json")
+        let edxDir = appSupport.appendingPathComponent("Edx")
+        try? FileManager.default.createDirectory(at: edxDir, withIntermediateDirectories: true)
+        return edxDir.appendingPathComponent("request-history.json")
     }
     
     // MARK: - Initialization

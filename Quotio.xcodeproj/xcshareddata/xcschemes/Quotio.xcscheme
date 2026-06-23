@@ -16,7 +16,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "78D386932EFBF30400C40FB6"
-               BuildableName = "Quotio.app"
+               BuildableName = "Edx.app"
                BlueprintName = "Quotio"
                ReferencedContainer = "container:Quotio.xcodeproj">
             </BuildableReference>
@@ -45,7 +45,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "78D386932EFBF30400C40FB6"
-            BuildableName = "Quotio.app"
+            BuildableName = "Edx.app"
             BlueprintName = "Quotio"
             ReferencedContainer = "container:Quotio.xcodeproj">
          </BuildableReference>
@@ -62,7 +62,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "78D386932EFBF30400C40FB6"
-            BuildableName = "Quotio.app"
+            BuildableName = "Edx.app"
             BlueprintName = "Quotio"
             ReferencedContainer = "container:Quotio.xcodeproj">
          </BuildableReference>

@@ -175,20 +175,19 @@ final class QuotaViewModel {
         loadPersistedIDEQuotas()
         setupRefreshCadenceCallback()
         setupWarmupCallback()
-        restartWarmupScheduler()
-        lastProxyURL = normalizedProxyURL(UserDefaults.standard.string(forKey: "proxyURL"))
+        lastProxyURL = ProxyConfigurationService.readProxyURLFromLocalConfig()
         setupProxyURLObserver()
     }
 
     private func setupProxyURLObserver() {
         NotificationCenter.default.addObserver(
-            forName: UserDefaults.didChangeNotification,
+            forName: .quotioLocalProxyConfigDidChange,
             object: nil,
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
-                let currentProxyURL = self.normalizedProxyURL(UserDefaults.standard.string(forKey: "proxyURL"))
+                let currentProxyURL = ProxyConfigurationService.readProxyURLFromLocalConfig()
                 guard currentProxyURL != self.lastProxyURL else { return }
                 self.lastProxyURL = currentProxyURL
                 await self.updateProxyConfiguration()
@@ -231,30 +230,24 @@ final class QuotaViewModel {
     
     private func setupWarmupCallback() {
         warmupSettings.onEnabledAccountsChanged = { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.restartWarmupScheduler()
-            }
+            Task { @MainActor [weak self] in self?.cancelHiddenWarmup() }
         }
         warmupSettings.onWarmupCadenceChanged = { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.restartWarmupScheduler()
-            }
+            Task { @MainActor [weak self] in self?.cancelHiddenWarmup() }
         }
         warmupSettings.onWarmupScheduleChanged = { [weak self] in
-            Task { @MainActor [weak self] in
-                self?.restartWarmupScheduler()
-            }
+            Task { @MainActor [weak self] in self?.cancelHiddenWarmup() }
         }
     }
-    
+
+    private func cancelHiddenWarmup() {
+        warmupTask?.cancel()
+        warmupTask = nil
+    }
+
     private func restartAutoRefresh() {
-        if modeManager.isMonitorMode {
-            startQuotaOnlyAutoRefresh()
-        } else if proxyManager.proxyStatus.running {
-            startAutoRefresh()
-        } else {
-            startQuotaAutoRefreshWithoutProxy()
-        }
+        refreshTask?.cancel()
+        refreshTask = nil
     }
     
     // MARK: - Mode-Aware Initialization
@@ -270,16 +263,20 @@ final class QuotaViewModel {
     }
 
     private func initializeFullMode() async {
-        // Always refresh quotas directly first (works without proxy)
-        await refreshQuotasUnified()
-        
+        refreshTask?.cancel()
+        refreshTask = nil
+
+        if await proxyManager.reconcileRunningStateWithSystem() {
+            attachProxyControlSurface()
+            Task {
+                await checkForProxyUpgrade()
+            }
+            return
+        }
+
         let autoStartProxy = UserDefaults.standard.bool(forKey: "autoStartProxy")
         if autoStartProxy && proxyManager.isBinaryInstalled {
             await startProxy()
-            // Note: checkForProxyUpgrade() is now called inside startProxy()
-        } else {
-            // If not auto-starting proxy, start quota auto-refresh
-            startQuotaAutoRefreshWithoutProxy()
         }
     }
     
@@ -288,16 +285,10 @@ final class QuotaViewModel {
         await proxyManager.checkForUpgrade()
     }
     
-    /// Initialize for Quota-Only Mode (no proxy)
+    /// Initialize for monitor mode without starting hidden quota polling.
     private func initializeQuotaOnlyMode() async {
-        // Load auth files directly from filesystem
-        await loadDirectAuthFiles()
-        
-        // Fetch quotas directly
-        await refreshQuotasDirectly()
-        
-        // Start auto-refresh for quota-only mode
-        startQuotaOnlyAutoRefresh()
+        refreshTask?.cancel()
+        refreshTask = nil
     }
     
     private func initializeRemoteMode() async {
@@ -321,8 +312,8 @@ final class QuotaViewModel {
         
         if isConnected {
             modeManager.markConnected()
-            await refreshData()
-            startAutoRefresh()
+            refreshTask?.cancel()
+            refreshTask = nil
         } else {
             modeManager.setConnectionStatus(.error("Could not connect to remote server"))
         }
@@ -1010,39 +1001,29 @@ final class QuotaViewModel {
         }
 
         do {
-            // Wire up ProxyBridge callback to RequestTracker before starting
-            proxyManager.proxyBridge.onRequestCompleted = { [weak self] metadata in
-                self?.requestTracker.addRequest(from: metadata)
-            }
-            
+            configureProxyBridgeCallbacks()
             try await proxyManager.start()
-            setupAPIClient()
-            startAutoRefresh()
-            restartWarmupScheduler()
+            attachProxyControlSurface()
 
-            // Start RequestTracker
-            requestTracker.start()
-
-            await refreshData()
-
-            // Sync local disabled states to backend after data is loaded
-            await syncDisabledStatesToBackend()
-            await refreshData()
-
-            await runWarmupCycle()
-
-            // Check for proxy upgrade (non-blocking, fire-and-forget)
+            // 保留代理更新能力，但不恢复余额刷新和 warmup 链路。
             Task {
                 await checkForProxyUpgrade()
-            }
-
-            let autoStartTunnel = UserDefaults.standard.bool(forKey: "autoStartTunnel")
-            if autoStartTunnel && tunnelManager.installation.isInstalled {
-                await tunnelManager.startTunnel(port: proxyManager.port)
             }
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func configureProxyBridgeCallbacks() {
+        proxyManager.proxyBridge.onRequestCompleted = { [weak self] metadata in
+            self?.requestTracker.addRequest(from: metadata)
+        }
+    }
+
+    private func attachProxyControlSurface() {
+        configureProxyBridgeCallbacks()
+        setupAPIClient()
+        requestTracker.start()
     }
     
     func stopProxy() {
@@ -1059,8 +1040,7 @@ final class QuotaViewModel {
         requestTracker.stop()
         
         proxyManager.stop()
-        restartWarmupScheduler()
-        
+
         // Invalidate URLSession to close all connections
         // Capture client reference before setting to nil to avoid race condition
         let clientToInvalidate = _apiClient

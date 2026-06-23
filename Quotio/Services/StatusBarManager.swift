@@ -68,18 +68,11 @@ final class StatusBarManager: NSObject, NSMenuDelegate {
         button.title = ""
         button.image = nil
         
-        let contentView: AnyView
-        if !showQuota || !isRunning || items.isEmpty {
-            contentView = AnyView(
-                StatusBarDefaultView(isRunning: isRunning)
-            )
-        } else {
-            contentView = AnyView(
-                StatusBarQuotaView(items: items, colorMode: colorMode)
-            )
-        }
-        
-        let hostingView = NSHostingView(rootView: contentView)
+        _ = items
+        _ = colorMode
+        _ = showQuota
+
+        let hostingView = NSHostingView(rootView: StatusBarDefaultView(isRunning: isRunning))
         hostingView.setFrameSize(hostingView.intrinsicContentSize)
         
         // Add horizontal padding to align with native status bar spacing
@@ -107,6 +100,7 @@ final class StatusBarManager: NSObject, NSMenuDelegate {
     
     func menuWillOpen(_ menu: NSMenu) {
         hasPendingMenuRebuild = false
+        viewModel?.proxyManager.reconcileRunningStateSnapshotWithSystem()
         performMenuRebuild(using: menu)
     }
     

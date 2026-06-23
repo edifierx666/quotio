@@ -1,6 +1,6 @@
 //
 //  StatusBarMenuBuilder.swift
-//  Quotio
+//  Edx
 //
 //  Native NSMenu builder that matches MenuBarView layout:
 //  - Header
@@ -51,42 +51,7 @@ final class StatusBarMenuBuilder {
             menu.addItem(NSMenuItem.separator())
         }
 
-        // 3. All provider accounts shown together, grouped by provider header
-        let providers = providersWithData
-        if !providers.isEmpty {
-            for (index, provider) in providers.enumerated() {
-                let accounts = accountsForProvider(provider)
-
-                // Provider section header
-                let headerView = MenuProviderSectionHeader(provider: provider)
-                menu.addItem(viewItem(for: headerView))
-
-                if accounts.isEmpty {
-                    menu.addItem(buildEmptyStateItem())
-                } else {
-                    for account in accounts {
-                        let cardItem = buildAccountCardItem(
-                            email: account.email,
-                            data: account.data,
-                            provider: provider
-                        )
-                        menu.addItem(cardItem)
-                    }
-                }
-
-                // Separator between provider groups (not after the last one)
-                if index < providers.count - 1 {
-                    menu.addItem(NSMenuItem.separator())
-                }
-            }
-
-            menu.addItem(NSMenuItem.separator())
-        } else {
-            menu.addItem(buildEmptyStateItem())
-            menu.addItem(NSMenuItem.separator())
-        }
-        
-        // 4. Action items
+        // 3. Action items
         for item in buildActionItems() {
             menu.addItem(item)
         }
@@ -197,7 +162,7 @@ final class StatusBarMenuBuilder {
     private func buildNetworkInfoItem() -> NSMenuItem {
         let networkView = MenuNetworkInfoView(
             port: String(viewModel.proxyManager.port),
-            isProxyRunning: viewModel.proxyManager.proxyStatus.running,
+            proxyManager: viewModel.proxyManager,
             onProxyToggle: { [weak viewModel] in
                 Task { await viewModel?.toggleProxy() }
             },
@@ -337,12 +302,6 @@ final class MenuActionHandler: NSObject {
         super.init()
     }
     
-    @objc func refresh() {
-        Task {
-            await viewModel?.refreshQuotasUnified()
-        }
-    }
-    
     @objc func openApp() {
         Self.openMainWindow()
     }
@@ -359,7 +318,7 @@ final class MenuActionHandler: NSObject {
 
         NSApplication.shared.activate(ignoringOtherApps: true)
 
-        if let window = NSApplication.shared.windows.first(where: { $0.title == "Quotio" }) {
+        if let window = NSApplication.shared.windows.first(where: { $0.title == "Edx" }) {
             window.makeKeyAndOrderFront(nil)
 
             if window.isMiniaturized {
@@ -380,7 +339,7 @@ private struct MenuHeaderView: View {
     
     var body: some View {
         HStack {
-            Text("Quotio")
+            Text("Edx")
                 .font(.headline)
                 .fontWeight(.semibold)
             
@@ -511,13 +470,15 @@ private struct ProviderIconMono: View {
 
 private struct MenuNetworkInfoView: View {
     let port: String
-    let isProxyRunning: Bool
+    let proxyManager: CLIProxyManager
     let onProxyToggle: () -> Void
     let onCopyProxyURL: () -> Void
     let onTunnelToggle: () -> Void
     let onCopyTunnelURL: () -> Void
 
     private let tunnelManager = TunnelManager.shared
+    private var isProxyStarting: Bool { proxyManager.isStarting }
+    private var isProxyRunning: Bool { proxyManager.proxyStatus.running }
     private var tunnelStatus: CloudflareTunnelStatus { tunnelManager.tunnelState.status }
     private var tunnelURL: String? { tunnelManager.tunnelState.publicURL }
     private var proxyURL: String { "http://127.0.0.1:" + port }
@@ -530,19 +491,37 @@ private struct MenuNetworkInfoView: View {
         case tunnel
     }
 
+    private var proxyToggleIconName: String {
+        if isProxyStarting { return "arrow.triangle.2.circlepath" }
+        return isProxyRunning ? "stop.fill" : "play.fill"
+    }
+
+    private var proxyToggleColor: Color {
+        if isProxyStarting { return .orange }
+        return isProxyRunning ? .red : .green
+    }
+
     var body: some View {
         VStack(spacing: 8) {
             // Proxy Row
             HStack(spacing: 8) {
-                Circle()
-                    .fill(isProxyRunning ? Color.green : Color.gray)
-                    .frame(width: 6, height: 6)
+                if isProxyStarting {
+                    SmallProgressView(size: 8)
+                } else {
+                    Circle()
+                        .fill(isProxyRunning ? Color.green : Color.gray)
+                        .frame(width: 6, height: 6)
+                }
 
                 Text("providers.source.proxy".localized())
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.secondary)
 
-                if isProxyRunning {
+                if isProxyStarting {
+                    Text("status.starting".localized())
+                        .font(.system(size: 9))
+                        .foregroundStyle(.tertiary)
+                } else if isProxyRunning {
                     Text(proxyURL)
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
                         .foregroundStyle(.primary)
@@ -561,11 +540,12 @@ private struct MenuNetworkInfoView: View {
                 Spacer()
 
                 Button(action: onProxyToggle) {
-                    Image(systemName: isProxyRunning ? "stop.fill" : "play.fill")
+                    Image(systemName: proxyToggleIconName)
                         .font(.system(size: 9))
-                        .foregroundStyle(isProxyRunning ? .red : .green)
+                        .foregroundStyle(proxyToggleColor)
                 }
                 .buttonStyle(.plain)
+                .disabled(isProxyStarting)
             }
 
             // Tunnel Row (only show when proxy is running)
@@ -1396,29 +1376,18 @@ private extension AIProvider {
 // MARK: - Menu Actions View
 
 private struct MenuActionsView: View {
-    @Environment(QuotaViewModel.self) private var viewModel
-    
     var body: some View {
         VStack(spacing: 0) {
-            MenuBarActionButton(
-                icon: "arrow.clockwise",
-                title: "action.refresh".localized(),
-                isLoading: viewModel.isLoadingQuotas
-            ) {
-                Task { await viewModel.refreshQuotasUnified() }
-            }
-            .disabled(viewModel.isLoadingQuotas)
-            
             MenuBarActionButton(
                 icon: "macwindow",
                 title: "action.openApp".localized()
             ) {
                 MenuActionHandler.openMainWindow()
             }
-            
+
             Divider()
                 .padding(.vertical, 4)
-            
+
             MenuBarActionButton(
                 icon: "xmark.circle",
                 title: "action.quit".localized()

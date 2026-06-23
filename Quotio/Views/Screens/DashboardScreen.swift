@@ -1,6 +1,6 @@
 //
 //  DashboardScreen.swift
-//  Quotio
+//  Edx
 //
 
 import SwiftUI
@@ -8,6 +8,7 @@ import UniformTypeIdentifiers
 
 struct DashboardScreen: View {
     @Environment(QuotaViewModel.self) private var viewModel
+    @Environment(\.openURL) private var openURL
     @AppStorage("hideGettingStarted") private var hideGettingStarted: Bool = false
     @State private var modeManager = OperatingModeManager.shared
 
@@ -689,30 +690,106 @@ struct DashboardScreen: View {
 
     /// The display endpoint for clients to connect to
     private var displayEndpoint: String {
-        // Always use client endpoint - all traffic should go through Quotio's proxy
+        // Always use client endpoint - all traffic should go through Edx's proxy
         return viewModel.proxyManager.clientEndpoint + "/v1"
+    }
+
+    private var cpaServiceAddress: String {
+        viewModel.proxyManager.clientEndpoint
+    }
+
+    private var managementPageAddress: String {
+        cpaServiceAddress + "/management.html"
     }
 
     private var endpointSection: some View {
         GroupBox {
-            HStack {
-                Text(displayEndpoint)
-                    .font(.system(.body, design: .monospaced))
-                    .textSelection(.enabled)
+            VStack(alignment: .leading, spacing: 12) {
+                dashboardAddressRow(
+                    title: "CPA 服务地址",
+                    value: cpaServiceAddress,
+                    systemImage: "server.rack"
+                )
 
-                Spacer()
+                dashboardAddressRow(
+                    title: "后台页面",
+                    value: managementPageAddress,
+                    systemImage: "rectangle.connected.to.line.below",
+                    primaryAction: {
+                        openManagementPage()
+                    }
+                )
 
-                Button {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(displayEndpoint, forType: .string)
-                } label: {
-                    Image(systemName: "doc.on.doc")
+                dashboardAddressRow(
+                    title: "API Endpoint",
+                    value: displayEndpoint,
+                    systemImage: "link"
+                )
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("配置文件地址", systemImage: "doc.text")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+
+                    PathLabel(
+                        path: viewModel.proxyManager.configPath,
+                        canOpenFile: true
+                    )
                 }
-                .buttonStyle(.bordered)
             }
         } label: {
-            Label("dashboard.apiEndpoint".localized(), systemImage: "link")
+            Label("本地 CPA 服务", systemImage: "network")
         }
+    }
+
+    private func dashboardAddressRow(
+        title: String,
+        value: String,
+        systemImage: String,
+        primaryAction: (() -> Void)? = nil
+    ) -> some View {
+        HStack(spacing: 10) {
+            Label(title, systemImage: systemImage)
+                .font(.subheadline)
+                .frame(width: 120, alignment: .leading)
+
+            Text(value)
+                .font(.system(.body, design: .monospaced))
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button {
+                copyToClipboard(value)
+            } label: {
+                Image(systemName: "doc.on.doc")
+            }
+            .buttonStyle(.bordered)
+            .help("复制地址")
+
+            if let primaryAction {
+                Button {
+                    primaryAction()
+                } label: {
+                    Label("打开", systemImage: "safari")
+                }
+                .buttonStyle(.borderedProminent)
+                .help("打开后台页面")
+            }
+        }
+    }
+
+    private func copyToClipboard(_ value: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(value, forType: .string)
+    }
+
+    private func openManagementPage() {
+        guard let url = URL(string: managementPageAddress) else { return }
+        openURL(url)
     }
     
     // MARK: - Tunnel Section

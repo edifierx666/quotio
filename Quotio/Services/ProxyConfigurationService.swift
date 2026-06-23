@@ -1,12 +1,16 @@
 //
 //  ProxyConfigurationService.swift
-//  Quotio
+//  Edx
 //
 //  Created by Antigravity on 2026/01/11.
 //
 
 import Foundation
 import Observation
+
+extension Notification.Name {
+    static let quotioLocalProxyConfigDidChange = Notification.Name("quotioLocalProxyConfigDidChange")
+}
 
 @MainActor
 @Observable
@@ -15,17 +19,7 @@ final class ProxyConfigurationService {
 
     /// Current upstream proxy URL (validated and sanitized)
     var upstreamProxyURL: String? {
-        guard let savedURL = UserDefaults.standard.string(forKey: "proxyURL"),
-              !savedURL.isEmpty else {
-            return nil
-        }
-
-        let sanitized = ProxyURLValidator.sanitize(savedURL)
-        guard ProxyURLValidator.validate(sanitized) == .valid else {
-            return nil
-        }
-
-        return sanitized
+        Self.readProxyURLFromLocalConfig()
     }
 
     /// Create a URLSessionConfiguration with proxy settings applied
@@ -39,17 +33,61 @@ final class ProxyConfigurationService {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = timeout
 
-        // Read proxy URL from UserDefaults directly (thread-safe)
-        if let proxyURLString = UserDefaults.standard.string(forKey: "proxyURL"),
-           !proxyURLString.isEmpty {
-            let sanitized = ProxyURLValidator.sanitize(proxyURLString)
-            if ProxyURLValidator.validate(sanitized) == .valid,
-               let url = URL(string: sanitized) {
-                config.connectionProxyDictionary = proxyDictionary(from: url)
-            }
+        if let proxyURLString = readProxyURLFromLocalConfig(),
+           let url = URL(string: proxyURLString) {
+            config.connectionProxyDictionary = proxyDictionary(from: url)
         }
 
         return config
+    }
+
+    nonisolated static func readProxyURLFromLocalConfig() -> String? {
+        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+
+        let configURL = appSupport
+            .appendingPathComponent("Edx")
+            .appendingPathComponent("config.yaml")
+
+        guard let content = try? String(contentsOf: configURL, encoding: .utf8),
+              let rawURL = extractProxyURL(from: content),
+              !rawURL.isEmpty else {
+            return nil
+        }
+
+        let sanitized = ProxyURLValidator.sanitize(rawURL)
+        guard ProxyURLValidator.validate(sanitized) == .valid else {
+            return nil
+        }
+
+        return sanitized
+    }
+
+    nonisolated private static func extractProxyURL(from content: String) -> String? {
+        let pattern = #"(?m)^proxy-url:\s*([^\n]*)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: content, range: NSRange(content.startIndex..<content.endIndex, in: content)),
+              match.numberOfRanges >= 2,
+              let range = Range(match.range(at: 1), in: content) else {
+            return nil
+        }
+
+        return unquoteYAMLScalar(String(content[range]))
+    }
+
+    nonisolated private static func unquoteYAMLScalar(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2,
+              trimmed.first == "\"",
+              trimmed.last == "\"" else {
+            return trimmed
+        }
+
+        let inner = trimmed.dropFirst().dropLast()
+        return inner
+            .replacingOccurrences(of: "\\\"", with: "\"")
+            .replacingOccurrences(of: "\\\\", with: "\\")
     }
 
     nonisolated static private func proxyDictionary(from url: URL) -> [AnyHashable: Any]? {

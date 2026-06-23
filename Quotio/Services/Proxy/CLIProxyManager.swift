@@ -1,6 +1,6 @@
 //
 //  CLIProxyManager.swift
-//  Quotio - CLIProxyAPI GUI Wrapper
+//  Edx - CLIProxyAPI GUI Wrapper
 //
 
 import Foundation
@@ -26,11 +26,10 @@ final class CLIProxyManager {
     
     /// Whether to allow network access to the proxy (bind to 0.0.0.0)
     var allowNetworkAccess: Bool {
-        get { UserDefaults.standard.bool(forKey: "allowNetworkAccess") }
+        get { configHostAllowsNetworkAccess() }
         set {
-            guard newValue != UserDefaults.standard.bool(forKey: "allowNetworkAccess") else { return }
-            UserDefaults.standard.set(newValue, forKey: "allowNetworkAccess")
             ensureConfigExists()
+            guard newValue != configHostAllowsNetworkAccess() else { return }
             if newValue {
                 ensureApiKeyExistsInConfig()
             }
@@ -47,21 +46,34 @@ final class CLIProxyManager {
     }
     
     nonisolated static func terminateProxyOnShutdown() {
-        let savedPort = UserDefaults.standard.integer(forKey: "proxyPort")
-        let port = (savedPort > 0 && savedPort < 65536) ? UInt16(savedPort) : 8080
+        let port = shutdownUserPort()
         let useBridge = UserDefaults.standard.bool(forKey: "useBridgeMode")
-        
+
         // Kill user-facing port
         killProcessOnPort(port)
-        
+
         // Only kill internal port if bridge mode is enabled
         // to avoid accidentally killing unrelated services
         if useBridge {
             killProcessOnPort(ProxyBridge.internalPort(from: port))
         }
     }
+
+    nonisolated private static func shutdownUserPort() -> UInt16 {
+        if let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+            let configURL = appSupport
+                .appendingPathComponent("Edx")
+                .appendingPathComponent("config.yaml")
+            if let content = try? String(contentsOf: configURL, encoding: .utf8),
+               let configPort = extractTopLevelPort(from: content) {
+                return configPort
+            }
+        }
+
+        return 8080
+    }
     
-    /// IMPORTANT: Excludes own PID to prevent killing Quotio itself when ProxyBridge is running.
+    /// IMPORTANT: Excludes own PID to prevent killing Edx itself when ProxyBridge is running.
     nonisolated private static func killProcessOnPort(_ port: UInt16) {
         let lsofProcess = Process()
         lsofProcess.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
@@ -97,7 +109,6 @@ final class CLIProxyManager {
     }
     
     private var process: Process?
-    private var testProcess: Process?
     private var authProcess: Process?
     private(set) var proxyStatus = ProxyStatus()
     private(set) var isStarting = false
@@ -111,18 +122,12 @@ final class CLIProxyManager {
     /// Current state of the proxy manager.
     private(set) var managerState: ProxyManagerState = .idle
     
-    /// Version currently being tested (during dry-run).
-    private(set) var testingVersion: String?
-    
-    /// Port used for dry-run testing.
-    private(set) var testPort: UInt16?
-    
-    /// Path to the test config file (for cleanup).
-    private var testConfigPath: String?
+    /// User-facing port selected from the local config for the active proxy process.
+    private var activeUserPort: UInt16?
 
-    /// Raw management key for the current dry-run proxy.
-    private var testManagementKey: String?
-    
+    /// Actual CLIProxyAPI port selected for the active proxy process.
+    private var activeCLIProxyPort: UInt16?
+
     /// The active proxy version (if using versioned storage).
     private(set) var activeVersion: String?
     
@@ -144,7 +149,7 @@ final class CLIProxyManager {
     /// Health monitor task for auto-recovery
     private var healthMonitorTask: Task<Void, Never>?
 
-    /// PIDs that Quotio intentionally terminates during stop/restart/upgrade flows.
+    /// PIDs that Edx intentionally terminates during stop/restart/upgrade flows.
     private var expectedTerminationPIDs = Set<Int32>()
 
     /// Pending restart after an unexpected proxy process exit.
@@ -186,19 +191,25 @@ final class CLIProxyManager {
         get { proxyStatus.port }
         set {
             guard newValue != proxyStatus.port else { return }
-            proxyStatus.port = newValue
-            UserDefaults.standard.set(Int(newValue), forKey: "proxyPort")
+            updateProxyStatus(running: proxyStatus.running, port: newValue)
             updateConfigPort(newValue)
             restartProxyIfRunning()
         }
     }
     
     private static let binaryName = "CLIProxyAPI"
+    nonisolated private static let cliProxyProcessNames: Set<String> = [
+        "cliproxyapi",
+        "cli-proxy-api",
+        "cli-proxy-api-plus",
+        "claude-code-proxy",
+        "proxy"
+    ]
     
     /// Base URL for the proxy API (always points to CLIProxyAPI directly)
     /// When bridge mode is enabled, this uses the internal port
     var baseURL: String {
-        let port = useBridgeMode ? internalPort : proxyStatus.port
+        let port = activeCLIProxyPort ?? (useBridgeMode ? internalPort : proxyStatus.port)
         return "http://127.0.0.1:\(port)"
     }
     
@@ -215,13 +226,13 @@ final class CLIProxyManager {
         guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             fatalError("Application Support directory not found")
         }
-        let quotioDir = appSupport.appendingPathComponent("Quotio")
+        let edxDir = appSupport.appendingPathComponent("Edx")
         let homeDir = FileManager.default.homeDirectoryForCurrentUser
         
-        try? FileManager.default.createDirectory(at: quotioDir, withIntermediateDirectories: true)
-        
-        self.binaryPath = quotioDir.appendingPathComponent("CLIProxyAPI").path
-        self.configPath = quotioDir.appendingPathComponent("config.yaml").path
+        try? FileManager.default.createDirectory(at: edxDir, withIntermediateDirectories: true)
+
+        self.binaryPath = edxDir.appendingPathComponent("CLIProxyAPI").path
+        self.configPath = edxDir.appendingPathComponent("config.yaml").path
         self.authDir = homeDir.appendingPathComponent(".cli-proxy-api").path
         
         // Always use key from Keychain, generate new if not exists
@@ -236,11 +247,6 @@ final class CLIProxyManager {
             }
         }
         
-        let savedPort = UserDefaults.standard.integer(forKey: "proxyPort")
-        if savedPort > 0 && savedPort < 65536 {
-            self.proxyStatus.port = UInt16(savedPort)
-        }
-
         // Note: Bridge mode default is registered in AppDelegate.applicationDidFinishLaunching()
         // using UserDefaults.register(defaults:) which is the preferred approach
 
@@ -249,6 +255,7 @@ final class CLIProxyManager {
         migrateLegacyVersionedStorageIfNeeded()
         initializeSelectedBinarySourceIfNeeded()
         ensureConfigExists()
+        loadUserPortFromConfigIfPresent()
     }
 
     /// Restart the proxy if it is currently running.
@@ -272,32 +279,111 @@ final class CLIProxyManager {
         }
     }
 
-    private func updateConfigValue(pattern: String, replacement: String) {
+    struct LocalProxyConfigSnapshot {
+        let proxyURL: String?
+        let routingStrategy: String
+        let switchProject: Bool
+        let switchPreviewModel: Bool
+        let requestRetry: Int
+        let maxRetryInterval: Int
+        let loggingToFile: Bool
+        let requestLog: Bool
+        let debug: Bool
+        let allowNetworkAccess: Bool
+    }
+
+    func loadLocalConfigSnapshot() -> LocalProxyConfigSnapshot? {
+        guard let content = readLocalConfigContent() else { return nil }
+
+        return LocalProxyConfigSnapshot(
+            proxyURL: Self.extractTopLevelString("proxy-url", from: content),
+            routingStrategy: Self.extractNestedString(section: "routing", key: "strategy", from: content) ?? "round-robin",
+            switchProject: Self.extractNestedBool(section: "quota-exceeded", key: "switch-project", from: content) ?? true,
+            switchPreviewModel: Self.extractNestedBool(section: "quota-exceeded", key: "switch-preview-model", from: content) ?? true,
+            requestRetry: Self.extractTopLevelInt("request-retry", from: content) ?? 3,
+            maxRetryInterval: Self.extractTopLevelInt("max-retry-interval", from: content) ?? 30,
+            loggingToFile: Self.extractTopLevelBool("logging-to-file", from: content) ?? true,
+            requestLog: Self.extractTopLevelBool("request-log", from: content) ?? false,
+            debug: Self.extractTopLevelBool("debug", from: content) ?? false,
+            allowNetworkAccess: Self.extractTopLevelHost(from: content) == "0.0.0.0"
+        )
+    }
+
+    private func readLocalConfigContent() -> String? {
         guard FileManager.default.fileExists(atPath: configPath),
-              var content = try? String(contentsOfFile: configPath, encoding: .utf8) else {
+              let content = try? String(contentsOfFile: configPath, encoding: .utf8) else {
             NSLog("[CLIProxyManager] ERROR: Failed to read config file at \(configPath)")
-            return
+            return nil
         }
-        
-        guard let range = content.range(of: pattern, options: .regularExpression) else {
-            NSLog("[CLIProxyManager] ERROR: Pattern '\(pattern)' not found in config")
-            return
-        }
-        
+
+        return content
+    }
+
+    @discardableResult
+    private func writePatchedConfig(_ patch: (String) -> String) -> Bool {
+        guard let content = readLocalConfigContent() else { return false }
+        let patchedContent = patch(content)
+
+        guard patchedContent != content else { return true }
+
         do {
-            content.replaceSubrange(range, with: replacement)
-            try content.write(toFile: configPath, atomically: true, encoding: .utf8)
+            try patchedContent.write(toFile: configPath, atomically: true, encoding: .utf8)
+            return true
         } catch {
             NSLog("[CLIProxyManager] ERROR: Failed to write config file: \(error)")
+            return false
+        }
+    }
+
+    @discardableResult
+    private func updateTopLevelConfigValue(key: String, value: String) -> Bool {
+        writePatchedConfig { content in
+            Self.replaceOrAppendTopLevelValue(key: key, value: value, in: content)
+        }
+    }
+
+    @discardableResult
+    private func updateNestedConfigValue(section: String, key: String, value: String) -> Bool {
+        writePatchedConfig { content in
+            Self.replaceOrAppendNestedValue(section: section, key: key, value: value, in: content)
         }
     }
 
     private func updateConfigPort(_ newPort: UInt16) {
-        updateConfigValue(pattern: #"port:\s*\d+"#, replacement: "port: \(newPort)")
+        updateTopLevelConfigValue(key: "port", value: "\(newPort)")
+    }
+
+    private func loadUserPortFromConfigIfPresent() {
+        guard let content = try? String(contentsOfFile: configPath, encoding: .utf8),
+              let configPort = Self.extractTopLevelPort(from: content) else {
+            return
+        }
+
+        updateProxyStatus(running: proxyStatus.running, port: configPort)
+    }
+
+    private func updateProxyStatus(running: Bool? = nil, port: UInt16? = nil) {
+        var nextStatus = proxyStatus
+        if let running {
+            nextStatus.running = running
+        }
+        if let port {
+            nextStatus.port = port
+        }
+        guard nextStatus.running != proxyStatus.running || nextStatus.port != proxyStatus.port else { return }
+        proxyStatus = nextStatus
+    }
+
+    private func configHostAllowsNetworkAccess() -> Bool {
+        guard let content = try? String(contentsOfFile: configPath, encoding: .utf8) else {
+            return false
+        }
+
+        return Self.extractTopLevelHost(from: content) == "0.0.0.0"
     }
 
     private func updateConfigHost(_ host: String) {
-        updateConfigValue(pattern: #"host:\s*"[^"]*""#, replacement: "host: \"\(host)\"")
+        updateTopLevelConfigValue(key: "host", value: quoteYAMLScalar(host))
     }
 
     private func ensureApiKeyExistsInConfig() {
@@ -349,43 +435,86 @@ final class CLIProxyManager {
         try? lines.joined(separator: "\n").write(toFile: configPath, atomically: true, encoding: .utf8)
     }
     
-    func updateConfigAllowRemote(_ enabled: Bool) {
-        updateConfigValue(pattern: #"allow-remote:\s*(true|false)"#, replacement: "allow-remote: \(enabled)")
+    @discardableResult
+    func updateConfigAllowRemote(_ enabled: Bool) -> Bool {
+        updateNestedConfigValue(section: "remote-management", key: "allow-remote", value: "\(enabled)")
     }
 
-    func updateConfigLogging(enabled: Bool) {
-        updateConfigValue(pattern: #"logging-to-file:\s*(true|false)"#, replacement: "logging-to-file: \(enabled)")
-        restartProxyIfRunning()
+    @discardableResult
+    func updateConfigLogging(enabled: Bool) -> Bool {
+        updateTopLevelConfigValue(key: "logging-to-file", value: "\(enabled)")
+    }
+
+    /// Update routing strategy in the persistent config file.
+    func updateConfigRoutingStrategy(_ strategy: String) -> Bool {
+        updateNestedConfigValue(section: "routing", key: "strategy", value: quoteYAMLScalar(strategy))
+    }
+
+    @discardableResult
+    func updateConfigSwitchProject(_ enabled: Bool) -> Bool {
+        updateNestedConfigValue(section: "quota-exceeded", key: "switch-project", value: "\(enabled)")
+    }
+
+    @discardableResult
+    func updateConfigSwitchPreviewModel(_ enabled: Bool) -> Bool {
+        updateNestedConfigValue(section: "quota-exceeded", key: "switch-preview-model", value: "\(enabled)")
+    }
+
+    @discardableResult
+    func updateConfigRequestRetry(_ count: Int) -> Bool {
+        updateTopLevelConfigValue(key: "request-retry", value: "\(count)")
+    }
+
+    @discardableResult
+    func updateConfigMaxRetryInterval(_ seconds: Int) -> Bool {
+        updateTopLevelConfigValue(key: "max-retry-interval", value: "\(seconds)")
+    }
+
+    @discardableResult
+    func updateConfigRequestLog(_ enabled: Bool) -> Bool {
+        updateTopLevelConfigValue(key: "request-log", value: "\(enabled)")
+    }
+
+    @discardableResult
+    func updateConfigDebug(_ enabled: Bool) -> Bool {
+        updateTopLevelConfigValue(key: "debug", value: "\(enabled)")
     }
     
-    /// Update routing strategy in config file
-    /// Note: Changes take effect after proxy restart (CLIProxyAPI does not support live routing API)
-    func updateConfigRoutingStrategy(_ strategy: String) {
-        updateConfigValue(pattern: #"strategy:\s*"[^"]*""#, replacement: "strategy: \"\(strategy)\"")
-        NSLog("[CLIProxyManager] Routing strategy updated to: \(strategy) (restarting proxy)")
-        restartProxyIfRunning()
-    }
-    
-    func updateConfigProxyURL(_ url: String?) {
+    @discardableResult
+    func updateConfigProxyURL(_ url: String?, restartIfRunning: Bool = true) -> Bool {
         guard FileManager.default.fileExists(atPath: configPath),
-              var content = try? String(contentsOfFile: configPath, encoding: .utf8) else { return }
+              var content = try? String(contentsOfFile: configPath, encoding: .utf8) else { return false }
 
         let proxyValue = url?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let replacement = "proxy-url: \(quoteYAMLScalar(proxyValue))"
+        var didWrite = false
 
-        if let range = content.range(of: #"proxy-url:\s*\"[^\"]*\""#, options: .regularExpression) {
-            content.replaceSubrange(range, with: "proxy-url: \"\(proxyValue)\"")
-            try? content.write(toFile: configPath, atomically: true, encoding: .utf8)
-        } else if let range = content.range(of: #"proxy-url:\s*[^\n]*"#, options: .regularExpression) {
-            content.replaceSubrange(range, with: "proxy-url: \"\(proxyValue)\"")
-            try? content.write(toFile: configPath, atomically: true, encoding: .utf8)
+        if let range = content.range(of: #"(?m)^proxy-url:\s*[^\n]*"#, options: .regularExpression) {
+            content.replaceSubrange(range, with: replacement)
+            didWrite = true
+        } else if let portRange = content.range(of: #"(?m)^port:\s*[^\n]*\n?"#, options: .regularExpression) {
+            let separator = content[portRange].hasSuffix("\n") ? "" : "\n"
+            content.insert(contentsOf: "\(separator)\(replacement)\n", at: portRange.upperBound)
+            didWrite = true
         } else {
-            if let portRange = content.range(of: #"port:\s*\d+\n"#, options: .regularExpression) {
-                content.insert(contentsOf: "proxy-url: \"\(proxyValue)\"\n", at: portRange.upperBound)
-                try? content.write(toFile: configPath, atomically: true, encoding: .utf8)
+            content = Self.appendLine(replacement, to: content)
+            didWrite = true
+        }
+
+        if didWrite {
+            do {
+                try content.write(toFile: configPath, atomically: true, encoding: .utf8)
+            } catch {
+                NSLog("[CLIProxyManager] ERROR: Failed to write proxy URL config: \(error)")
+                return false
             }
         }
 
-        restartProxyIfRunning()
+        if restartIfRunning {
+            restartProxyIfRunning()
+        }
+
+        return true
     }
 
     // MARK: - Workarounds
@@ -498,7 +627,399 @@ final class CLIProxyManager {
 
         try? defaultConfig.write(toFile: configPath, atomically: true, encoding: .utf8)
     }
-    
+
+    private struct LaunchConfiguration {
+        let path: String
+        let userPort: UInt16
+        let cliProxyPort: UInt16
+        let bridgeEnabled: Bool
+    }
+
+    private func prepareLaunchConfiguration() throws -> LaunchConfiguration {
+        let content: String
+        do {
+            content = try String(contentsOfFile: configPath, encoding: .utf8)
+        } catch {
+            throw ProxyError.configurationError("Failed to read local config: \(error.localizedDescription)")
+        }
+
+        return launchConfiguration(from: content)
+    }
+
+    private func launchConfiguration(from content: String) -> LaunchConfiguration {
+        let userPort = Self.extractTopLevelPort(from: content) ?? proxyStatus.port
+        let launchKey = resolveManagementKey(from: content)
+
+        managementKey = launchKey
+        updateProxyStatus(running: proxyStatus.running, port: userPort)
+        activeUserPort = userPort
+        activeCLIProxyPort = userPort
+
+        return LaunchConfiguration(
+            path: configPath,
+            userPort: userPort,
+            cliProxyPort: userPort,
+            bridgeEnabled: false
+        )
+    }
+
+    @discardableResult
+    func reconcileRunningStateWithSystem() async -> Bool {
+        guard FileManager.default.fileExists(atPath: configPath),
+              let content = try? String(contentsOfFile: configPath, encoding: .utf8) else {
+            updateProxyStatus(running: false)
+            return false
+        }
+
+        let launchConfig = launchConfiguration(from: content)
+        let isProcessRunning = await isCLIProxyProcessRunning(userPort: launchConfig.userPort, cliProxyPort: launchConfig.cliProxyPort)
+
+        applyReconciledRunningState(isProcessRunning, userPort: launchConfig.userPort)
+        return isProcessRunning
+    }
+
+    @discardableResult
+    func reconcileRunningStateSnapshotWithSystem() -> Bool {
+        guard FileManager.default.fileExists(atPath: configPath),
+              let content = try? String(contentsOfFile: configPath, encoding: .utf8) else {
+            updateProxyStatus(running: false)
+            return false
+        }
+
+        let launchConfig = launchConfiguration(from: content)
+        let isProcessRunning = isCLIProxyProcessRunningSnapshot(
+            userPort: launchConfig.userPort,
+            cliProxyPort: launchConfig.cliProxyPort
+        )
+        applyReconciledRunningState(isProcessRunning, userPort: launchConfig.userPort)
+        return isProcessRunning
+    }
+
+    private func applyReconciledRunningState(_ isRunning: Bool, userPort: UInt16) {
+        updateProxyStatus(running: isRunning, port: userPort)
+        managerState = isRunning ? .active : .idle
+
+        if isRunning {
+            startHealthMonitor()
+        } else {
+            stopHealthMonitor()
+            process = nil
+            activeUserPort = nil
+            activeCLIProxyPort = nil
+        }
+    }
+
+    private func isCLIProxyProcessRunning(userPort: UInt16, cliProxyPort: UInt16) async -> Bool {
+        if let process, process.isRunning {
+            return true
+        }
+
+        return await Task.detached(priority: .utility) {
+            Self.hasCLIProxyProcess(userPort: userPort, cliProxyPort: cliProxyPort)
+        }.value
+    }
+
+    private func isCLIProxyProcessRunningSnapshot(userPort: UInt16, cliProxyPort: UInt16) -> Bool {
+        if let process, process.isRunning {
+            return true
+        }
+        return Self.hasCLIProxyProcess(userPort: userPort, cliProxyPort: cliProxyPort)
+    }
+
+    nonisolated private static func hasCLIProxyProcess(userPort: UInt16, cliProxyPort: UInt16) -> Bool {
+        if Self.portHasCLIProxyProcess(cliProxyPort) {
+            return true
+        }
+        guard userPort != cliProxyPort else { return false }
+        return Self.portHasCLIProxyProcess(userPort)
+    }
+
+    nonisolated private static func portHasCLIProxyProcess(_ port: UInt16) -> Bool {
+        let lsofProcess = Process()
+        lsofProcess.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
+        lsofProcess.arguments = ["-nP", "-iTCP:\(port)", "-sTCP:LISTEN", "-F", "cn"]
+
+        let pipe = Pipe()
+        lsofProcess.standardOutput = pipe
+        lsofProcess.standardError = FileHandle.nullDevice
+
+        do {
+            try lsofProcess.run()
+            lsofProcess.waitUntilExit()
+
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            guard let output = String(data: data, encoding: .utf8), !output.isEmpty else {
+                return false
+            }
+
+            return output.components(separatedBy: .newlines).contains { line in
+                guard line.hasPrefix("c") else { return false }
+                let commandName = String(line.dropFirst()).lowercased()
+                return cliProxyProcessNames.contains(commandName)
+            }
+        } catch {
+            return false
+        }
+    }
+
+    nonisolated private static func extractTopLevelPort(from content: String) -> UInt16? {
+        let pattern = #"(?m)^port:\s*(\d+)\b"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: content, range: NSRange(content.startIndex..<content.endIndex, in: content)),
+              match.numberOfRanges >= 2,
+              let range = Range(match.range(at: 1), in: content),
+              let port = UInt16(String(content[range])),
+              port > 0 else {
+            return nil
+        }
+        return port
+    }
+
+    nonisolated private static func extractTopLevelHost(from content: String) -> String? {
+        let pattern = #"(?m)^host:\s*([^\n]*)"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: content, range: NSRange(content.startIndex..<content.endIndex, in: content)),
+              match.numberOfRanges >= 2,
+              let range = Range(match.range(at: 1), in: content) else {
+            return nil
+        }
+
+        return Self.unquoteYAMLScalar(String(content[range]))
+    }
+
+    private func resolveManagementKey(from content: String) -> String {
+        guard let configKey = extractManagementKey(from: content),
+              isPlaintextManagementKey(configKey) else {
+            return managementKey
+        }
+
+        if configKey != managementKey,
+           !KeychainHelper.saveLocalManagementKey(configKey) {
+            Log.keychain("Failed to persist local management key from config")
+        }
+
+        return configKey
+    }
+
+    private func extractManagementKey(from content: String) -> String? {
+        var isInRemoteManagement = false
+
+        for line in content.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if trimmed == "remote-management:" {
+                isInRemoteManagement = true
+                continue
+            }
+
+            guard isInRemoteManagement else { continue }
+
+            if !trimmed.isEmpty && !line.hasPrefix(" ") && !line.hasPrefix("\t") {
+                return nil
+            }
+
+            guard trimmed.hasPrefix("secret-key:") else { continue }
+            let rawValue = String(trimmed.dropFirst("secret-key:".count))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return Self.unquoteYAMLScalar(rawValue)
+        }
+
+        return nil
+    }
+
+    private func isPlaintextManagementKey(_ value: String) -> Bool {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        return !trimmed.hasPrefix("$2a$")
+            && !trimmed.hasPrefix("$2b$")
+            && !trimmed.hasPrefix("$2y$")
+    }
+
+    nonisolated private static func unquoteYAMLScalar(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 2,
+              trimmed.first == "\"",
+              trimmed.last == "\"" else {
+            return trimmed
+        }
+
+        let inner = trimmed.dropFirst().dropLast()
+        return inner
+            .replacingOccurrences(of: "\\\"", with: "\"")
+            .replacingOccurrences(of: "\\\\", with: "\\")
+    }
+
+    private func quoteYAMLScalar(_ value: String) -> String {
+        let escaped = value
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        return "\"\(escaped)\""
+    }
+
+    nonisolated private static func extractTopLevelString(_ key: String, from content: String) -> String? {
+        let escapedKey = NSRegularExpression.escapedPattern(for: key)
+        let pattern = "(?m)^\(escapedKey):\\s*([^\\n]*)"
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: content, range: NSRange(content.startIndex..<content.endIndex, in: content)),
+              match.numberOfRanges >= 2,
+              let range = Range(match.range(at: 1), in: content) else {
+            return nil
+        }
+
+        return unquoteYAMLScalar(String(content[range]))
+    }
+
+    nonisolated private static func extractTopLevelBool(_ key: String, from content: String) -> Bool? {
+        guard let value = extractTopLevelString(key, from: content)?.lowercased() else { return nil }
+        if value == "true" { return true }
+        if value == "false" { return false }
+        return nil
+    }
+
+    nonisolated private static func extractTopLevelInt(_ key: String, from content: String) -> Int? {
+        guard let value = extractTopLevelString(key, from: content) else { return nil }
+        return Int(value)
+    }
+
+    nonisolated private static func extractNestedString(section: String, key: String, from content: String) -> String? {
+        var isInSection = false
+
+        for line in content.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if trimmed == "\(section):" {
+                isInSection = true
+                continue
+            }
+
+            guard isInSection else { continue }
+
+            if !trimmed.isEmpty && !line.hasPrefix(" ") && !line.hasPrefix("\t") {
+                return nil
+            }
+
+            guard trimmed.hasPrefix("\(key):") else { continue }
+            let rawValue = String(trimmed.dropFirst("\(key):".count))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return unquoteYAMLScalar(rawValue)
+        }
+
+        return nil
+    }
+
+    nonisolated private static func extractNestedBool(section: String, key: String, from content: String) -> Bool? {
+        guard let value = extractNestedString(section: section, key: key, from: content)?.lowercased() else { return nil }
+        if value == "true" { return true }
+        if value == "false" { return false }
+        return nil
+    }
+
+    nonisolated private static func replaceOrAppendTopLevelValue(key: String, value: String, in content: String) -> String {
+        let replacement = "\(key): \(value)"
+        let escapedKey = NSRegularExpression.escapedPattern(for: key)
+        let pattern = "(?m)^\(escapedKey):\\s*[^\\n]*"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return Self.appendLine(replacement, to: content)
+        }
+
+        let range = NSRange(content.startIndex..<content.endIndex, in: content)
+        if regex.firstMatch(in: content, range: range) != nil {
+            return regex.stringByReplacingMatches(in: content, options: [], range: range, withTemplate: replacement)
+        }
+
+        return Self.appendLine(replacement, to: content)
+    }
+
+    nonisolated private static func replaceOrAppendNestedValue(section: String, key: String, value: String, in content: String) -> String {
+        var lines = content.components(separatedBy: .newlines)
+        let replacement = "  \(key): \(value)"
+
+        if let sectionIndex = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines) == "\(section):" }) {
+            var insertIndex = sectionIndex + 1
+
+            while insertIndex < lines.count {
+                let line = lines[insertIndex]
+                let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                if !trimmed.isEmpty && !line.hasPrefix(" ") && !line.hasPrefix("\t") {
+                    break
+                }
+
+                if trimmed.hasPrefix("\(key):") {
+                    let prefix = String(line.prefix { $0 == " " || $0 == "\t" })
+                    lines[insertIndex] = "\(prefix)\(key): \(value)"
+                    return lines.joined(separator: "\n")
+                }
+
+                insertIndex += 1
+            }
+
+            lines.insert(replacement, at: insertIndex)
+            return lines.joined(separator: "\n")
+        }
+
+        return Self.appendLine("\(section):\n\(replacement)", to: content)
+    }
+
+    private func replaceOrAppendTopLevelPort(_ port: UInt16, in content: String) -> String {
+        let replacement = "port: \(port)"
+        let pattern = #"(?m)^port:\s*[^\n]*"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return Self.appendLine(replacement, to: content)
+        }
+
+        let range = NSRange(content.startIndex..<content.endIndex, in: content)
+        if regex.firstMatch(in: content, range: range) != nil {
+            return regex.stringByReplacingMatches(in: content, options: [], range: range, withTemplate: replacement)
+        }
+
+        return Self.appendLine(replacement, to: content)
+    }
+
+    private func replaceOrAppendManagementKey(_ key: String, in content: String) -> String {
+        var lines = content.components(separatedBy: .newlines)
+        let replacement = "  secret-key: \(quoteYAMLScalar(key))"
+
+        if let remoteIndex = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines) == "remote-management:" }) {
+            var insertIndex = remoteIndex + 1
+
+            while insertIndex < lines.count {
+                let line = lines[insertIndex]
+                let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                if !trimmed.isEmpty && !line.hasPrefix(" ") && !line.hasPrefix("\t") {
+                    break
+                }
+
+                if trimmed.hasPrefix("secret-key:") {
+                    let prefix = String(line.prefix { $0 == " " || $0 == "\t" })
+                    lines[insertIndex] = "\(prefix)secret-key: \(quoteYAMLScalar(key))"
+                    return lines.joined(separator: "\n")
+                }
+
+                insertIndex += 1
+            }
+
+            lines.insert(replacement, at: insertIndex)
+            return lines.joined(separator: "\n")
+        }
+
+        return Self.appendLine("remote-management:\n\(replacement)", to: content)
+    }
+
+    nonisolated private static func appendLine(_ line: String, to content: String) -> String {
+        let separator = content.hasSuffix("\n") ? "" : "\n"
+        return "\(content)\(separator)\(line)\n"
+    }
+
+    private func prepareAuthCommandConfig() throws -> String {
+        guard FileManager.default.fileExists(atPath: configPath) else {
+            throw ProxyError.configurationError("Local config does not exist")
+        }
+
+        return configPath
+    }
+
     private func syncSecretKeyInConfig() {
         guard FileManager.default.fileExists(atPath: configPath),
               var content = try? String(contentsOfFile: configPath, encoding: .utf8) else { return }
@@ -549,40 +1070,7 @@ final class CLIProxyManager {
             throw error
         }
     }
-    
-    /// Synchronizes the proxy URL from UserDefaults into the config.yaml file.
-    ///
-    /// If no local preference has been set (i.e., the user has never saved a proxy URL from the UI),
-    /// this method returns early to preserve any value configured via the management web UI or
-    /// direct config.yaml editing. Once the user sets a value through the app, UserDefaults becomes
-    /// the source of truth and its value is written to config.yaml on each proxy start.
-    private func syncProxyURLInConfig() {
-        // If no local preference exists, keep config.yaml as-is (it may be set via management UI).
-        guard UserDefaults.standard.object(forKey: "proxyURL") != nil else {
-            return
-        }
 
-        let savedURL = UserDefaults.standard.string(forKey: "proxyURL") ?? ""
-        
-        guard !savedURL.isEmpty else {
-            updateConfigProxyURL(nil)
-            return
-        }
-        
-        let sanitized = ProxyURLValidator.sanitize(savedURL)
-        let isValid = ProxyURLValidator.validate(sanitized) == .valid
-        updateConfigProxyURL(isValid ? sanitized : nil)
-    }
-    
-    private func syncCustomProvidersToConfig() {
-        do {
-            try CustomProviderService.shared.syncToConfigFile(configPath: configPath)
-        } catch {
-            // Silent failure - custom providers are optional
-            Log.proxy("Failed to sync custom providers to config: \\(error)")
-        }
-    }
-    
     var isBinaryInstalled: Bool {
         isSourceInstalled(selectedBinarySource)
     }
@@ -657,7 +1145,7 @@ final class CLIProxyManager {
 
         var request = URLRequest(url: url)
         request.addValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
-        request.addValue("Quotio/1.0", forHTTPHeaderField: "User-Agent")
+        request.addValue("Edx/1.0", forHTTPHeaderField: "User-Agent")
 
         let config = ProxyConfigurationService.createProxiedConfigurationStatic(timeout: 30)
         let session = URLSession(configuration: config)
@@ -698,7 +1186,7 @@ final class CLIProxyManager {
         }
 
         var request = URLRequest(url: downloadURL)
-        request.addValue("Quotio/1.0", forHTTPHeaderField: "User-Agent")
+        request.addValue("Edx/1.0", forHTTPHeaderField: "User-Agent")
 
         let config = ProxyConfigurationService.createProxiedConfigurationStatic(timeout: 300) // 5 minutes timeout for large downloads
         let session = URLSession(configuration: config)
@@ -823,25 +1311,17 @@ final class CLIProxyManager {
         
         defer { isStarting = false }
         
-        // Clean up any orphan processes from previous runs
+        let launchConfig = try prepareLaunchConfiguration()
+
+        // Clean up any orphan processes from previous runs after resolving the config-owned ports.
         await cleanupOrphanProcesses()
-        
-        syncSecretKeyInConfig()
-        syncProxyURLInConfig()
-        syncCustomProvidersToConfig()
-        
-        // Determine which port CLIProxyAPI should listen on
-        let cliProxyPort = useBridgeMode ? internalPort : proxyStatus.port
-        
-        // Update config to use the correct port
-        updateConfigPort(cliProxyPort)
-        
+
         // Use effectiveBinaryPath to support versioned storage
         let activeBinaryPath = effectiveBinaryPath
-        
+
         let process = Process()
         process.executableURL = URL(fileURLWithPath: activeBinaryPath)
-        process.arguments = ["-config", configPath]
+        process.arguments = ["-config", launchConfig.path]
         process.currentDirectoryURL = URL(fileURLWithPath: activeBinaryPath).deletingLastPathComponent()
         
         // CRITICAL FIX: Drain stdout/stderr to prevent pipe buffer deadlock
@@ -873,8 +1353,9 @@ final class CLIProxyManager {
         environment["TERM"] = "xterm-256color"
         process.environment = environment
         
-        let bridgeEnabled = useBridgeMode
-        let userPort = proxyStatus.port
+        let bridgeEnabled = launchConfig.bridgeEnabled
+        let userPort = launchConfig.userPort
+        let cliProxyPort = launchConfig.cliProxyPort
         
         process.terminationHandler = { terminatedProcess in
             let status = terminatedProcess.terminationStatus
@@ -902,9 +1383,11 @@ final class CLIProxyManager {
                     self.proxyBridge.stop()
                 }
 
-                self.proxyStatus.running = false
+                self.updateProxyStatus(running: false)
                 self.process = nil
-                
+                self.activeUserPort = nil
+                self.activeCLIProxyPort = nil
+
                 if !wasExpected && !self.isStarting {
                     self.lastError = "Process exited with code: \(status)"
                     if status != 0 {
@@ -945,16 +1428,19 @@ final class CLIProxyManager {
                 NSLog("[CLIProxyManager] Direct proxy started on port \(userPort)")
             }
             
-            proxyStatus.running = true
-            
+            updateProxyStatus(running: true, port: userPort)
+            managerState = .active
+
             startHealthMonitor()
             
         } catch {
             lastError = error.localizedDescription
+            activeUserPort = nil
+            activeCLIProxyPort = nil
             throw error
         }
     }
-    
+
     func stop() {
         terminateAuthProcess()
         stopHealthMonitor()
@@ -973,11 +1459,11 @@ final class CLIProxyManager {
         // because UI responsiveness is more important than this rare edge case.
         // A 150ms buffer is added below to reduce (but not eliminate) this race window.
         let currentProcess = process
-        let userPort = proxyStatus.port
-        let bridgeMode = useBridgeMode
-        let intPort = internalPort
+        let userPort = activeUserPort ?? proxyStatus.port
+        let intPort = activeCLIProxyPort ?? internalPort
+        let shouldCleanInternalPort = activeCLIProxyPort != nil && intPort != userPort
         markExpectedTermination(currentProcess)
-        
+
         Task.detached(priority: .userInitiated) {
             // Force terminate the main proxy process
             if let proc = currentProcess, proc.isRunning {
@@ -996,13 +1482,18 @@ final class CLIProxyManager {
             
             // Kill processes on both ports
             Self.killProcessOnPortSync(userPort)
-            if bridgeMode {
+            if shouldCleanInternalPort {
                 Self.killProcessOnPortSync(intPort)
             }
         }
-        
+
         process = nil
-        proxyStatus.running = false
+        updateProxyStatus(running: false)
+        if managerState == .active {
+            managerState = .idle
+        }
+        activeUserPort = nil
+        activeCLIProxyPort = nil
     }
 
     /// Stop the proxy and wait for process/port cleanup to complete.
@@ -1018,13 +1509,18 @@ final class CLIProxyManager {
         }
 
         let currentProcess = process
-        let userPort = proxyStatus.port
-        let bridgeMode = useBridgeMode
-        let intPort = internalPort
+        let userPort = activeUserPort ?? proxyStatus.port
+        let intPort = activeCLIProxyPort ?? internalPort
+        let shouldCleanInternalPort = activeCLIProxyPort != nil && intPort != userPort
         markExpectedTermination(currentProcess)
 
         process = nil
-        proxyStatus.running = false
+        updateProxyStatus(running: false)
+        if managerState == .active {
+            managerState = .idle
+        }
+        activeUserPort = nil
+        activeCLIProxyPort = nil
 
         await Task.detached(priority: .userInitiated) {
             if let proc = currentProcess, proc.isRunning {
@@ -1042,7 +1538,7 @@ final class CLIProxyManager {
             }
 
             Self.killProcessOnPortSync(userPort)
-            if bridgeMode {
+            if shouldCleanInternalPort {
                 Self.killProcessOnPortSync(intPort)
             }
         }.value
@@ -1146,7 +1642,7 @@ final class CLIProxyManager {
         }
         
         let isHealthy = await compatibilityChecker.isHealthy(
-            port: useBridgeMode ? internalPort : proxyStatus.port,
+            port: activeCLIProxyPort ?? (useBridgeMode ? internalPort : proxyStatus.port),
             managementKey: managementKey
         )
         
@@ -1196,9 +1692,9 @@ final class CLIProxyManager {
     /// Clean up any orphan proxy processes from previous runs.
     /// Executes blocking operations on background thread to avoid blocking MainActor.
     private func cleanupOrphanProcesses() async {
-        let userPort = proxyStatus.port
-        let bridgeMode = useBridgeMode
-        let intPort = internalPort
+        let userPort = activeUserPort ?? proxyStatus.port
+        let intPort = activeCLIProxyPort ?? internalPort
+        let shouldCleanInternalPort = activeCLIProxyPort != nil && intPort != userPort
         
         // Execute blocking operations on background thread
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
@@ -1206,8 +1702,8 @@ final class CLIProxyManager {
                 // Kill any process on the user-facing port
                 Self.killProcessOnPortSync(userPort)
                 
-                // Only kill internal port if bridge mode is enabled
-                if bridgeMode {
+                // Only kill the internal port when the active launch config uses a separate port.
+                if shouldCleanInternalPort {
                     Self.killProcessOnPortSync(intPort)
                     NSLog("[CLIProxyManager] Cleaned up orphan processes on ports \(userPort) and \(intPort)")
                 } else {
@@ -1223,7 +1719,7 @@ final class CLIProxyManager {
     
     /// Synchronous port cleanup for use in detached tasks.
     /// This method is `nonisolated` to allow calling from background threads.
-    /// IMPORTANT: Excludes own PID to prevent killing Quotio itself when ProxyBridge is running.
+    /// IMPORTANT: Excludes own PID to prevent killing Edx itself when ProxyBridge is running.
     nonisolated private static func killProcessOnPortSync(_ port: UInt16) {
         let lsofProcess = Process()
         lsofProcess.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
@@ -1260,7 +1756,9 @@ final class CLIProxyManager {
     }
     
     func terminateAuthProcess() {
-        guard let authProcess = authProcess, authProcess.isRunning else { return }
+        guard let authProcess = authProcess, authProcess.isRunning else {
+            return
+        }
         authProcess.terminate()
         self.authProcess = nil
     }
@@ -1292,6 +1790,7 @@ enum ProxyError: LocalizedError {
     case noCompatibleBinary
     case extractionFailed
     case downloadFailed
+    case configurationError(String)
     
     var errorDescription: String? {
         switch self {
@@ -1311,6 +1810,8 @@ enum ProxyError: LocalizedError {
             return "Failed to extract binary from archive."
         case .downloadFailed:
             return "Failed to download binary."
+        case .configurationError(let msg):
+            return "Configuration error: \(msg)"
         }
     }
 }
@@ -1371,10 +1872,22 @@ extension CLIProxyManager {
         }
         
         return await withCheckedContinuation { continuation in
+            let configPath: String
+            do {
+                configPath = try prepareAuthCommandConfig()
+            } catch {
+                continuation.resume(returning: AuthCommandResult(
+                    success: false,
+                    message: "Failed to prepare config: \(error.localizedDescription)",
+                    deviceCode: nil
+                ))
+                return
+            }
+
             let newAuthProcess = Process()
             newAuthProcess.executableURL = URL(fileURLWithPath: effectiveBinaryPath)
             newAuthProcess.arguments = ["-config", configPath] + command.arguments
-            
+
             let outputPipe = Pipe()
             let errorPipe = Pipe()
             newAuthProcess.standardOutput = outputPipe
@@ -1426,11 +1939,14 @@ extension CLIProxyManager {
             
             newAuthProcess.terminationHandler = { [weak self] terminatedProcess in
                 outputPipe.fileHandleForReading.readabilityHandler = nil
-                
+
                 Task { @MainActor in
-                    self?.authProcess = nil
+                    guard let self else {
+                        return
+                    }
+                    self.authProcess = nil
                 }
-                
+
                 let status = terminatedProcess.terminationStatus
                 if status == 0 {
                     safeResume(AuthCommandResult(
@@ -1691,7 +2207,7 @@ extension CLIProxyManager {
 
         var request = URLRequest(url: url)
         request.addValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
-        request.addValue("Quotio/1.0", forHTTPHeaderField: "User-Agent")
+        request.addValue("Edx/1.0", forHTTPHeaderField: "User-Agent")
 
         let config = ProxyConfigurationService.createProxiedConfigurationStatic(timeout: 30)
         let session = URLSession(configuration: config)
@@ -1724,7 +2240,7 @@ extension CLIProxyManager {
 
         var request = URLRequest(url: url)
         request.addValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
-        request.addValue("Quotio/1.0", forHTTPHeaderField: "User-Agent")
+        request.addValue("Edx/1.0", forHTTPHeaderField: "User-Agent")
 
         let config = ProxyConfigurationService.createProxiedConfigurationStatic(timeout: 30)
         let session = URLSession(configuration: config)
@@ -1781,37 +2297,22 @@ extension CLIProxyManager {
         
         // Step 1: Download and install to versioned storage
         let installed = try await downloadAndInstallVersion(version)
-        
-        // Step 2: Perform dry-run
-        do {
-            try await startDryRun(version: installed.version, source: version.source)
-        } catch {
-            // Dry-run failed, cleanup
-            try? storageManager.deleteVersion(installed.version, source: version.source)
-            throw error
+
+        // Step 2: Promote directly. Edx 只保留一份本地配置，不再为升级 dry-run 生成第二份 YAML 配置。
+        let wasRunning = proxyStatus.running
+        if wasRunning {
+            stop()
         }
-        
-        // Step 3: Validate compatibility
-        guard let testPort = testPort, let testManagementKey = testManagementKey else {
-            await stopTestProxy()
-            try? storageManager.deleteVersion(installed.version, source: version.source)
-            throw ProxyUpgradeError.dryRunFailed("Test port not available")
+
+        try storageManager.setCurrentVersion(installed.version, source: version.source)
+        activeVersion = installed.version
+
+        if wasRunning {
+            try await start()
         }
-        
-        let compatResult = await compatibilityChecker.fullCheck(port: testPort, managementKey: testManagementKey)
-        
-        if !compatResult.isCompatible {
-            // Compatibility failed, rollback
-            await stopTestProxy()
-            try? storageManager.deleteVersion(installed.version, source: version.source)
-            upgradeError = compatResult.description
-            NotificationManager.shared.notifyUpgradeFailed(version: installed.version, reason: compatResult.description)
-            throw ProxyUpgradeError.compatibilityCheckFailed(compatResult)
-        }
-        
-        // Step 4: Promote the new version
-        try await promote(version: installed.version, source: version.source)
-        
+
+        managerState = proxyStatus.running ? .active : .idle
+
         // Cleanup old versions
         storageManager.cleanupOldVersions(source: version.source, keepLast: AppConstants.maxInstalledVersions)
         
@@ -1885,116 +2386,6 @@ extension CLIProxyManager {
         return installed
     }
     
-    /// Start a dry-run of a specific version on a test port.
-    private func startDryRun(version: String, source: ProxyBinarySource) async throws {
-        guard let binaryPath = storageManager.getBinaryPath(for: version, source: source) else {
-            throw ProxyUpgradeError.dryRunFailed("Version \(version) not installed")
-        }
-        
-        managerState = .testing
-        testingVersion = version
-        
-        // Find an unused port for testing
-        let port = try findUnusedPort()
-        testPort = port
-        
-        // Create a temporary config for the test
-        let managementKey = UUID().uuidString
-        let configPath = createTestConfig(port: port, managementKey: managementKey)
-        testConfigPath = configPath
-        testManagementKey = managementKey
-        
-        // Track success to determine cleanup behavior
-        var succeeded = false
-        defer {
-            if !succeeded {
-                // Cleanup on any failure path (sync version for defer block)
-                stopTestProxySync()
-                cleanupTestConfig(configPath)
-                testConfigPath = nil
-                testManagementKey = nil
-                managerState = proxyStatus.running ? .active : .idle
-                testingVersion = nil
-                testPort = nil
-            }
-        }
-        
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: binaryPath)
-        process.arguments = ["-config", configPath]
-        process.currentDirectoryURL = URL(fileURLWithPath: binaryPath).deletingLastPathComponent()
-        
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
-        
-        var environment = ProcessInfo.processInfo.environment
-        environment["TERM"] = "xterm-256color"
-        process.environment = environment
-        
-        do {
-            try process.run()
-        } catch {
-            throw ProxyUpgradeError.dryRunFailed(error.localizedDescription)
-        }
-        
-        testProcess = process
-        
-        // Wait for startup
-        try await Task.sleep(nanoseconds: 2_000_000_000)
-        
-        // Check if process is still running
-        guard process.isRunning else {
-            throw ProxyUpgradeError.dryRunFailed("Test proxy exited immediately")
-        }
-        
-        // Verify health
-        let isHealthy = await compatibilityChecker.isHealthy(port: port, managementKey: managementKey)
-        guard isHealthy else {
-            throw ProxyUpgradeError.dryRunFailed("Test proxy health check failed")
-        }
-        
-        // Mark success - defer block will not cleanup
-        succeeded = true
-    }
-    
-    /// Promote a tested version to active.
-    private func promote(version: String, source: ProxyBinarySource) async throws {
-        guard managerState == .testing else {
-            throw ProxyUpgradeError.dryRunFailed("Not in testing state")
-        }
-        
-        managerState = .promoting
-        
-        // Stop the test proxy and clean up test config
-        await stopTestProxy()
-        if let configPath = testConfigPath {
-            cleanupTestConfig(configPath)
-            testConfigPath = nil
-        }
-        testManagementKey = nil
-        
-        // Stop the current active proxy if running
-        let wasRunning = proxyStatus.running
-        if wasRunning {
-            stop()
-        }
-        
-        // Update the current symlink
-        try storageManager.setCurrentVersion(version, source: source)
-        activeVersion = version
-        
-        // Restart proxy if it was running
-        if wasRunning {
-            try await start()
-        }
-        
-        managerState = proxyStatus.running ? .active : .idle
-        testingVersion = nil
-        testPort = nil
-    }
-    
     /// Rollback to the previous version.
     func rollback() async throws {
         guard let previousVersion = findPreviousVersion() else {
@@ -2029,127 +2420,7 @@ extension CLIProxyManager {
     }
     
     // MARK: - Private Helpers
-    
-    private func stopTestProxy() async {
-        guard let process = testProcess, process.isRunning else {
-            testProcess = nil
-            testManagementKey = nil
-            return
-        }
-        
-        let pid = process.processIdentifier
-        process.terminate()
-        
-        // Wait up to 2 seconds for graceful termination
-        let deadline = Date().addingTimeInterval(2.0)
-        while process.isRunning && Date() < deadline {
-            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-        }
-        
-        if process.isRunning {
-            kill(pid, SIGKILL)
-        }
-        
-        testProcess = nil
-        testManagementKey = nil
-        
-        // Also kill anything on test port
-        if let port = testPort {
-            Self.killProcessOnPortSync(port)
-        }
-    }
-    
-    /// Synchronous version for use in defer blocks.
-    private func stopTestProxySync() {
-        guard let process = testProcess, process.isRunning else {
-            testProcess = nil
-            testManagementKey = nil
-            return
-        }
-        
-        let pid = process.processIdentifier
-        process.terminate()
-        
-        // Wait up to 2 seconds for graceful termination
-        let deadline = Date().addingTimeInterval(2.0)
-        while process.isRunning && Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.1)
-        }
-        
-        if process.isRunning {
-            kill(pid, SIGKILL)
-        }
-        
-        testProcess = nil
-        testManagementKey = nil
-        
-        // Also kill anything on test port
-        if let port = testPort {
-            Self.killProcessOnPortSync(port)
-        }
-    }
-    
-    private func findUnusedPort() throws -> UInt16 {
-        // Try ports in range 18000-18100
-        for port in UInt16(18000)...UInt16(18100) {
-            if !isPortInUse(port) && port != proxyStatus.port {
-                return port
-            }
-        }
-        throw ProxyUpgradeError.dryRunFailed("No available port for testing")
-    }
-    
-    private func isPortInUse(_ port: UInt16) -> Bool {
-        let socket = socket(AF_INET, SOCK_STREAM, 0)
-        guard socket >= 0 else { return true }
-        defer { close(socket) }
-        
-        var addr = sockaddr_in()
-        addr.sin_family = sa_family_t(AF_INET)
-        addr.sin_port = port.bigEndian
-        addr.sin_addr.s_addr = inet_addr("127.0.0.1")
-        
-        let bindResult = withUnsafePointer(to: &addr) {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
-                bind(socket, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
-            }
-        }
-        
-        return bindResult != 0
-    }
-    
-    private func createTestConfig(port: UInt16, managementKey: String) -> String {
-        let tempDir = FileManager.default.temporaryDirectory
-        let testConfigPath = tempDir.appendingPathComponent("quotio-test-config-\(port).yaml").path
-        
-        let testConfig = """
-        host: "127.0.0.1"
-        port: \(port)
-        auth-dir: "\(authDir)"
-        
-        api-keys:
-          - "quotio-test-\(UUID().uuidString.prefix(8))"
-        
-        remote-management:
-          allow-remote: false
-          secret-key: "\(managementKey)"
-        
-        debug: false
-        logging-to-file: false
-        usage-statistics-enabled: false
-        
-        routing:
-          strategy: "round-robin"
-        """
-        
-        try? testConfig.write(toFile: testConfigPath, atomically: true, encoding: .utf8)
-        return testConfigPath
-    }
-    
-    private func cleanupTestConfig(_ configPath: String) {
-        try? FileManager.default.removeItem(atPath: configPath)
-    }
-    
+
     /// Compare two semantic version strings.
     /// Returns true if `newer` is greater than `older`.
     /// Handles versions like "6.6.73-0" where the suffix after "-" is a build number.

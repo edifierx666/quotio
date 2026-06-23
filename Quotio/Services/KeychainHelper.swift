@@ -11,9 +11,9 @@ import Security
 // MARK: - Keychain Helper
 
 enum KeychainHelper {
-    private static let remoteService = "dev.quotio.desktop.remote-management"
-    private static let localService = "dev.quotio.desktop.local-management"
-    private static let warpService = "dev.quotio.desktop.warp"
+    private static let remoteService = "dev.edx.desktop.remote-management"
+    private static let localService = "dev.edx.desktop.local-management"
+    private static let warpService = "dev.edx.desktop.warp"
     private static let localManagementAccount = "local-management-key"
     private static let warpTokensAccount = "warp-tokens"
     private static let localManagementDefaultsKey = "managementKey"
@@ -21,16 +21,16 @@ enum KeychainHelper {
 
     // Legacy service names for keychain migration (newest first)
     private static let legacyRemoteServices = [
-        "proseek.io.vn.Quotio.remote-management",
-        "com.quotio.remote-management",
+        "proseek.io.vn.Edx.remote-management",
+        "com.edx.remote-management",
     ]
     private static let legacyLocalServices = [
-        "proseek.io.vn.Quotio.local-management",
-        "com.quotio.local-management",
+        "proseek.io.vn.Edx.local-management",
+        "com.edx.local-management",
     ]
     private static let legacyWarpServices = [
-        "proseek.io.vn.Quotio.warp",
-        "com.quotio.warp",
+        "proseek.io.vn.Edx.warp",
+        "com.edx.warp",
     ]
 
     static func saveManagementKey(_ key: String, for configId: String) {

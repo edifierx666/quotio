@@ -51,7 +51,13 @@ final class StatusBarMenuBuilder {
             menu.addItem(NSMenuItem.separator())
         }
 
-        // 3. Action items
+        // 3. Custom services (only those flagged for menu bar)
+        if !CustomServiceManager.shared.menuBarServices.isEmpty {
+            menu.addItem(buildCustomServicesItem())
+            menu.addItem(NSMenuItem.separator())
+        }
+
+        // 4. Action items
         for item in buildActionItems() {
             menu.addItem(item)
         }
@@ -272,6 +278,12 @@ final class StatusBarMenuBuilder {
     private func buildActionItems() -> [NSMenuItem] {
         let actionsView = MenuActionsView()
         return [viewItem(for: actionsView)]
+    }
+
+    // MARK: - Custom Services Item
+
+    private func buildCustomServicesItem() -> NSMenuItem {
+        viewItem(for: MenuCustomServicesView())
     }
     
     // MARK: - Helpers
@@ -1435,5 +1447,92 @@ private struct MenuBarActionButton: View {
         .buttonStyle(.plain)
         .disabled(isLoading)
         .onHover { isHovered = $0 }
+    }
+}
+
+// MARK: - Menu Custom Services View
+
+private struct MenuCustomServicesView: View {
+    @State private var manager = CustomServiceManager.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("custom.service.menuBar.title".localized())
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.top, 2)
+
+            ForEach(manager.menuBarServices) { service in
+                MenuCustomServiceRow(service: service)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
+    }
+}
+
+private struct MenuCustomServiceRow: View {
+    let service: CustomService
+
+    @State private var manager = CustomServiceManager.shared
+    @State private var isHovered = false
+
+    private var status: CustomServiceStatus {
+        manager.status(for: service.id)
+    }
+
+    var body: some View {
+        Button {
+            if status.isActive {
+                manager.stop(service)
+            } else {
+                manager.start(service)
+            }
+        } label: {
+            HStack(spacing: 8) {
+                statusIcon
+                    .frame(width: 14)
+
+                Text(service.name)
+                    .font(.system(size: 13))
+                    .lineLimit(1)
+
+                Spacer()
+
+                Image(systemName: status.isActive ? "stop.fill" : "play.fill")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+            .background(isHovered ? Color.secondary.opacity(0.1) : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(status == .starting || status == .stopping)
+        .onHover { isHovered = $0 }
+    }
+
+    @ViewBuilder
+    private var statusIcon: some View {
+        switch status {
+        case .starting, .stopping:
+            SmallProgressView(size: 10)
+        default:
+            Circle()
+                .fill(statusColor)
+                .frame(width: 8, height: 8)
+        }
+    }
+
+    private var statusColor: Color {
+        switch status {
+        case .running: return .green
+        case .starting, .stopping: return .orange
+        case .failed: return .red
+        case .stopped: return .gray
+        }
     }
 }

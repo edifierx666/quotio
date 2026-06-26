@@ -61,6 +61,9 @@ final class AppBootstrap {
         // Load only the core services that remain visible after removing quota/provider panels.
         await viewModel.initialize()
 
+        // Launch any user-defined services flagged for auto-start.
+        CustomServiceManager.shared.startAutoStartServices()
+
         #if canImport(Sparkle)
         UpdaterService.shared.checkForUpdatesInBackground()
         #endif
@@ -367,6 +370,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Stop background polling
         AtomFeedUpdateService.shared.stopPolling()
 
+        // Stop user-defined custom services.
+        CustomServiceManager.shared.stopAll()
+
         CLIProxyManager.terminateProxyOnShutdown()
         
         // Use semaphore to ensure tunnel cleanup completes before app terminates
@@ -484,6 +490,9 @@ struct ContentView: View {
                         Label("nav.dashboard".localized(), systemImage: "gauge.with.dots.needle.33percent")
                             .tag(NavigationPage.dashboard)
 
+                        Label("nav.customServices".localized(), systemImage: NavigationPage.customServices.icon)
+                            .tag(NavigationPage.customServices)
+
                         Label("nav.settings".localized(), systemImage: "gearshape")
                             .tag(NavigationPage.settings)
 
@@ -520,6 +529,8 @@ struct ContentView: View {
             switch viewModel.currentPage {
             case .dashboard:
                 DashboardScreen()
+            case .customServices:
+                CustomServicesScreen()
             case .about:
                 AboutScreen()
             default:

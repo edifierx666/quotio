@@ -1,10 +1,10 @@
-# Quotio
+# Edx
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="screenshots/menu_bar_dark.png" />
     <source media="(prefers-color-scheme: light)" srcset="screenshots/menu_bar.png" />
-    <img alt="Bannière Quotio" src="screenshots/menu_bar.png" height="600" />
+    <img alt="Bannière Edx" src="screenshots/menu_bar.png" height="600" />
   </picture>
 </p>
 
@@ -22,7 +22,7 @@
   <strong>Le centre de commande ultime pour vos assistants de codage IA sur macOS.</strong>
 </p>
 
-Quotio est une application macOS native pour gérer **CLIProxyAPI** - un serveur proxy local qui alimente vos agents de codage IA. Il vous aide à gérer plusieurs comptes IA, suivre les quotas et configurer les outils CLI en un seul endroit.
+Edx est une application macOS native pour gérer **CLIProxyAPI** - un serveur proxy local qui alimente vos agents de codage IA. Il vous aide à gérer plusieurs comptes IA, suivre les quotas et configurer les outils CLI en un seul endroit.
 
 ## ✨ Fonctionnalités
 
@@ -61,7 +61,7 @@ Quotio est une application macOS native pour gérer **CLIProxyAPI** - un serveur
 > **Note** : Ces IDE sont uniquement utilisés pour la surveillance de l'utilisation des quotas. Ils ne peuvent pas être utilisés comme fournisseurs pour le proxy.
 
 ### Agents CLI Compatibles
-Quotio peut configurer automatiquement ces outils pour utiliser votre proxy centralisé :
+Edx peut configurer automatiquement ces outils pour utiliser votre proxy centralisé :
 - Claude Code
 - Codex CLI
 - Gemini CLI
@@ -78,32 +78,32 @@ Quotio peut configurer automatiquement ces outils pour utiliser votre proxy cent
 ### Homebrew (Recommandé)
 ```bash
 brew tap nguyenphutrong/tap
-brew install --cask quotio
+brew install --cask edx
 ```
 
 ### Téléchargement
-Téléchargez le dernier `.dmg` depuis la page [Releases](https://github.com/nguyenphutrong/quotio/releases).
+Téléchargez le dernier `.dmg` depuis la page [Releases](https://github.com/nguyenphutrong/edx/releases).
 
 > ⚠️ **Note** : L'application n'est pas encore signée avec un certificat Apple Developer. Si macOS bloque l'application, exécutez :
 > ```bash
-> xattr -cr /Applications/Quotio.app
+> xattr -cr /Applications/Edx.app
 > ```
 
 ### Compilation depuis les Sources
 
 1. **Clonez le dépôt :**
    ```bash
-   git clone https://github.com/nguyenphutrong/quotio.git
-   cd Quotio
+   git clone https://github.com/nguyenphutrong/edx.git
+   cd Edx
    ```
 
 2. **Ouvrez dans Xcode :**
    ```bash
-   open Quotio.xcodeproj
+   open Edx.xcodeproj
    ```
 
 3. **Compilez et Exécutez :**
-   - Sélectionnez le schéma "Quotio"
+   - Sélectionnez le schéma "Edx"
    - Appuyez sur `Cmd + R` pour compiler et exécuter
 
 > L'application téléchargera automatiquement le binaire `CLIProxyAPI` au premier lancement.
@@ -111,7 +111,7 @@ Téléchargez le dernier `.dmg` depuis la page [Releases](https://github.com/ngu
 ## 📖 Utilisation
 
 ### 1. Démarrer le Serveur
-Lancez Quotio et cliquez sur **Démarrer** dans le tableau de bord pour initialiser le serveur proxy local.
+Lancez Edx et cliquez sur **Démarrer** dans le tableau de bord pour initialiser le serveur proxy local.
 
 ### 2. Connecter des Comptes
 Allez dans l'onglet **Fournisseurs** → Cliquez sur un fournisseur → Authentifiez-vous via OAuth ou importez des identifiants.
@@ -128,7 +128,7 @@ Allez dans l'onglet **Agents** → Sélectionnez un agent installé → Cliquez 
 
 - **Port** : Modifier le port d'écoute du proxy
 - **Stratégie de Routage** : Round Robin ou Remplir d'abord
-- **Démarrage Automatique** : Lancer le proxy automatiquement à l'ouverture de Quotio
+- **Démarrage Automatique** : Lancer le proxy automatiquement à l'ouverture de Edx
 - **Notifications** : Activer/désactiver les alertes pour divers événements
 
 ## 📸 Captures d'Écran
@@ -218,18 +218,18 @@ Rejoignez notre communauté Discord pour obtenir de l'aide, partager vos comment
   <source
     media="(prefers-color-scheme: dark)"
     srcset="
-      https://api.star-history.com/svg?repos=nguyenphutrong/quotio&type=Date&theme=dark
+      https://api.star-history.com/svg?repos=nguyenphutrong/edx&type=Date&theme=dark
     "
   />
   <source
     media="(prefers-color-scheme: light)"
     srcset="
-      https://api.star-history.com/svg?repos=nguyenphutrong/quotio&type=Date
+      https://api.star-history.com/svg?repos=nguyenphutrong/edx&type=Date
     "
   />
   <img
     alt="Graphique Historique des Étoiles"
-    src="https://api.star-history.com/svg?repos=nguyenphutrong/quotio&type=Date"
+    src="https://api.star-history.com/svg?repos=nguyenphutrong/edx&type=Date"
   />
 </picture>
 
@@ -241,8 +241,8 @@ Rejoignez notre communauté Discord pour obtenir de l'aide, partager vos comment
 
 Nous n'aurions pas pu y arriver sans vous. Merci ! 🙏
 
-<a href="https://github.com/nguyenphutrong/quotio/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=nguyenphutrong/quotio" />
+<a href="https://github.com/nguyenphutrong/edx/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=nguyenphutrong/edx" />
 </a>
 
 ## 📄 Licence

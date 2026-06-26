@@ -1,6 +1,6 @@
 # Build & Release Scripts
 
-11 bash scripts for building, packaging, notarizing, and releasing Quotio.
+11 bash scripts for building, packaging, notarizing, and releasing Edx.
 
 ## Quick Reference
 
@@ -27,14 +27,14 @@ build.sh → package.sh → notarize.sh → generate-appcast.sh
 Creates Xcode archive with ad-hoc signing.
 ```bash
 ./scripts/build.sh
-# Output: build/Quotio.app, build/Quotio.xcarchive
+# Output: build/Edx.app, build/Edx.xcarchive
 ```
 
 ### package.sh
 Creates distributable packages.
 ```bash
 ./scripts/package.sh
-# Output: build/Quotio.zip, build/Quotio.dmg
+# Output: build/Edx.zip, build/Edx.dmg
 ```
 - Uses `ditto` for ZIP (preserves attributes)
 - Uses `create-dmg` for DMG with custom layout

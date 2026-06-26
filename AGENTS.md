@@ -1,4 +1,4 @@
-# AGENTS.md - Quotio Development Guidelines
+# AGENTS.md - Edx Development Guidelines
 
 **Generated:** 2026-01-03 | **Commit:** 1995a85 | **Branch:** master
 
@@ -11,8 +11,8 @@ Native macOS menu bar app (SwiftUI) for managing CLIProxyAPI - local proxy serve
 ## Structure
 
 ```
-Quotio/
-├── QuotioApp.swift           # @main entry + AppDelegate + ContentView
+Edx/
+├── EdxApp.swift           # @main entry + AppDelegate + ContentView
 ├── Models/                   # Enums, Codable structs, settings managers
 ├── Services/                 # Business logic, API clients, actors (→ AGENTS.md)
 ├── ViewModels/               # @Observable state (QuotaViewModel, AgentSetupViewModel)
@@ -52,7 +52,7 @@ docs/                         # Architecture docs
 
 ```bash
 # Debug build
-xcodebuild -project Quotio.xcodeproj -scheme Quotio -configuration Debug build
+xcodebuild -project Edx.xcodeproj -scheme Edx -configuration Debug build
 
 # Release build
 ./scripts/build.sh
@@ -61,7 +61,7 @@ xcodebuild -project Quotio.xcodeproj -scheme Quotio -configuration Debug build
 ./scripts/release.sh
 
 # Check compile errors
-xcodebuild -project Quotio.xcodeproj -scheme Quotio -configuration Debug build 2>&1 | head -50
+xcodebuild -project Edx.xcodeproj -scheme Edx -configuration Debug build 2>&1 | head -50
 ```
 
 ## Conventions
@@ -190,8 +190,8 @@ No automated tests. Manual testing:
 | `Config/Debug.xcconfig` | Debug build settings |
 | `Config/Release.xcconfig` | Release build settings |
 | `Config/Local.xcconfig` | Developer overrides (gitignored) |
-| `Quotio/Info.plist` | App metadata, URL schemes |
-| `Quotio/Quotio.entitlements` | Sandbox disabled, network enabled |
+| `Edx/Info.plist` | App metadata, URL schemes |
+| `Edx/Edx.entitlements` | Sandbox disabled, network enabled |
 
 # Agentmap Integration
 

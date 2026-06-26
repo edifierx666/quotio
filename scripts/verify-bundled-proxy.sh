@@ -8,10 +8,10 @@ source "${SCRIPT_DIR}/config.sh"
 # This verifier does not start config.sh spinners; avoid clearing the caller's last output line.
 trap - EXIT
 
-APP_TO_VERIFY="${1:-${PROJECT_DIR}/build/Quotio.app}"
+APP_TO_VERIFY="${1:-${PROJECT_DIR}/build/Edx.app}"
 BINARY_NAME="cli-proxy-api-plus"
 RESOURCE_SUBDIRECTORY="Proxy"
-MODEL_SOURCE="${PROJECT_DIR}/Quotio/Models/ProxyVersionModels.swift"
+MODEL_SOURCE="${PROJECT_DIR}/Edx/Models/ProxyVersionModels.swift"
 
 fail() {
     log_failure "Bundled proxy verification failed"

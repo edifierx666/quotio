@@ -1,5 +1,5 @@
 name: "\U0001F41B Bug Report"
-description: Report a bug in Quotio
+description: Report a bug in Edx
 labels: ["bug"]
 body:
   - type: markdown
@@ -116,10 +116,10 @@ body:
       required: true
 
   - type: input
-    id: quotio_version
+    id: edx_version
     attributes:
-      label: Quotio Version
-      description: What version of Quotio are you using?
+      label: Edx Version
+      description: What version of Edx are you using?
       placeholder: "e.g., 0.6.0"
     validations:
       required: true
@@ -128,7 +128,7 @@ body:
     id: app_mode
     attributes:
       label: App Mode
-      description: Which mode are you running Quotio in?
+      description: Which mode are you running Edx in?
       options:
         - Full Mode (Proxy running)
         - Quota-Only Mode
@@ -148,7 +148,7 @@ body:
     id: logs
     attributes:
       label: Logs (optional)
-      description: Paste relevant logs from Quotio's Logs screen or CLIProxyAPI.
+      description: Paste relevant logs from Edx's Logs screen or CLIProxyAPI.
       render: shell
     validations:
       required: false

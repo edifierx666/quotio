@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Quotio Screenshot Automation Script
+ * Edx Screenshot Automation Script
  *
  * Captures app windows using macOS screencapture. CleanShot X is optional and only
  * used to hide/show desktop icons via its URL scheme when available.
@@ -27,7 +27,7 @@ import { join } from "path";
 // =============================================================================
 
 const CONFIG = {
-  appName: "Quotio",
+  appName: "Edx",
   windowSize: { width: 1280, height: 800 },
   outputDir: join(import.meta.dir, "..", "screenshots"),
   wallpaperCacheDir: join(import.meta.dir, "..", ".wallpaper-cache"),
@@ -36,8 +36,8 @@ const CONFIG = {
     dark: "https://misc-assets.raycast.com/wallpapers/loupe-mono-dark.heic",
   },
   paths: {
-    localBuild: join(import.meta.dir, "..", "build", "Quotio.app"),
-    installed: "/Applications/Quotio.app",
+    localBuild: join(import.meta.dir, "..", "build", "Edx.app"),
+    installed: "/Applications/Edx.app",
   },
   delays: {
     afterLaunch: 2000,
@@ -158,16 +158,16 @@ async function selectAppSource(apps: AppAvailability): Promise<AppSource | null>
     return "installed";
   }
   if (!apps.local && !apps.installed) {
-    p.log.error("No Quotio app found! Build locally or install to /Applications/");
+    p.log.error("No Edx app found! Build locally or install to /Applications/");
     return null;
   }
 
   // Both available - ask user
   const choice = await p.select({
-    message: "Which Quotio app to capture?",
+    message: "Which Edx app to capture?",
     options: [
-      { value: "local", label: "Local build", hint: "build/Quotio.app" },
-      { value: "installed", label: "Installed app", hint: "/Applications/Quotio.app" },
+      { value: "local", label: "Local build", hint: "build/Edx.app" },
+      { value: "installed", label: "Installed app", hint: "/Applications/Edx.app" },
     ],
   });
 
@@ -214,7 +214,7 @@ async function retry<T>(fn: () => Promise<T>, attempts: number, delay: number): 
 // =============================================================================
 
 async function launchApp(appPath: string): Promise<void> {
-  log(`Launching Quotio from ${appPath}...`);
+  log(`Launching Edx from ${appPath}...`);
   await $`open ${appPath}`.quiet();
   await sleep(CONFIG.delays.afterLaunch);
 }
@@ -454,9 +454,9 @@ async function compressPng(imagePath: string): Promise<void> {
   }
 }
 
-async function hideAllWindows(includeQuotio = false): Promise<void> {
+async function hideAllWindows(includeEdx = false): Promise<void> {
   log("Hiding all other windows...");
-  const excludeApps = includeQuotio
+  const excludeApps = includeEdx
     ? `name is not "CleanShot X"`
     : `name is not "${CONFIG.appName}" and name is not "CleanShot X"`;
 
@@ -592,7 +592,7 @@ function ensureOutputDir(dir: string): void {
 // =============================================================================
 
 async function showInteractiveTUI(): Promise<CaptureOptions | null> {
-  p.intro("📸 Quotio Screenshot Automation");
+  p.intro("📸 Edx Screenshot Automation");
 
   // App source selection
   const apps = detectAvailableApps();
@@ -713,7 +713,7 @@ async function main() {
   } else {
     console.log(`
 ╔══════════════════════════════════════════════════════════════╗
-║           Quotio Screenshot Automation                       ║
+║           Edx Screenshot Automation                       ║
 ║           Using CleanShot X URL Scheme API                   ║
 ╚══════════════════════════════════════════════════════════════╝
 `);

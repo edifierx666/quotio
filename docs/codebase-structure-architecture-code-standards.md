@@ -1,4 +1,4 @@
-# Quotio - Codebase Structure, Architecture, and Code Standards
+# Edx - Codebase Structure, Architecture, and Code Standards
 
 > **Last Updated**: January 2, 2025  
 > **Swift Version**: 6.0  
@@ -18,13 +18,13 @@
 ## Directory Structure
 
 ```
-Quotio/
+Edx/
 ├── Config/
 │   ├── Debug.xcconfig           # Debug build configuration
 │   ├── Release.xcconfig         # Release build configuration
 │   └── Local.xcconfig.example   # Template for local overrides
 │
-├── Quotio/
+├── Edx/
 │   ├── Assets.xcassets/
 │   │   ├── AccentColor.colorset/    # Accent color definition
 │   │   ├── AppIcon.appiconset/      # Production app icons
@@ -96,14 +96,14 @@ Quotio/
 │   │       └── SettingsScreen.swift
 │   │
 │   ├── Info.plist                   # App metadata
-│   ├── Quotio.entitlements          # App entitlements
-│   └── QuotioApp.swift              # App entry point
+│   ├── Edx.entitlements          # App entitlements
+│   └── EdxApp.swift              # App entry point
 │
-├── Quotio.xcodeproj/
+├── Edx.xcodeproj/
 │   ├── project.pbxproj              # Project configuration
 │   └── xcshareddata/
 │       └── xcschemes/
-│           └── Quotio.xcscheme      # Build scheme
+│           └── Edx.xcscheme      # Build scheme
 │
 ├── scripts/
 │   ├── build.sh                     # Build script
@@ -130,7 +130,7 @@ Quotio/
 
 ### MVVM (Model-View-ViewModel)
 
-Quotio follows the MVVM architectural pattern with SwiftUI:
+Edx follows the MVVM architectural pattern with SwiftUI:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -808,7 +808,7 @@ When implementing features, test manually:
 
 1. **Build Verification**:
    ```bash
-   xcodebuild -project Quotio.xcodeproj -scheme Quotio -configuration Debug build
+   xcodebuild -project Edx.xcodeproj -scheme Edx -configuration Debug build
    ```
 
 2. **UI Testing**:
@@ -836,22 +836,22 @@ When implementing features, test manually:
 
 ```bash
 # Open project in Xcode
-open Quotio.xcodeproj
+open Edx.xcodeproj
 
 # Build for development (Debug)
-xcodebuild -project Quotio.xcodeproj -scheme Quotio -configuration Debug build
+xcodebuild -project Edx.xcodeproj -scheme Edx -configuration Debug build
 
 # Build for release (unsigned)
 ./scripts/build.sh
 
 # Archive for distribution
 xcodebuild archive \
-    -project Quotio.xcodeproj \
-    -scheme Quotio \
+    -project Edx.xcodeproj \
+    -scheme Edx \
     -configuration Release \
-    -archivePath build/Quotio.xcarchive \
+    -archivePath build/Edx.xcarchive \
     -destination "generic/platform=macOS"
 
 # Check for compile errors
-xcodebuild -project Quotio.xcodeproj -scheme Quotio -configuration Debug build 2>&1 | head -50
+xcodebuild -project Edx.xcodeproj -scheme Edx -configuration Debug build 2>&1 | head -50
 ```

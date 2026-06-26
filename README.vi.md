@@ -1,10 +1,10 @@
-# Quotio
+# Edx
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="screenshots/menu_bar_dark.png" />
     <source media="(prefers-color-scheme: light)" srcset="screenshots/menu_bar.png" />
-    <img alt="Quotio Banner" src="screenshots/menu_bar.png" height="600" />
+    <img alt="Edx Banner" src="screenshots/menu_bar.png" height="600" />
   </picture>
 </p>
 
@@ -22,7 +22,7 @@
   <strong>Trung tâm điều khiển cho các trợ lý lập trình AI trên macOS.</strong>
 </p>
 
-Quotio là ứng dụng macOS để quản lý **CLIProxyAPI** - máy chủ proxy cục bộ cung cấp sức mạnh cho các agent lập trình AI. Quotio giúp bạn quản lý nhiều tài khoản AI, theo dõi hạn mức sử dụng và cấu hình các công cụ CLI tại một nơi.
+Edx là ứng dụng macOS để quản lý **CLIProxyAPI** - máy chủ proxy cục bộ cung cấp sức mạnh cho các agent lập trình AI. Edx giúp bạn quản lý nhiều tài khoản AI, theo dõi hạn mức sử dụng và cấu hình các công cụ CLI tại một nơi.
 
 ## ✨ Tính năng
 
@@ -61,7 +61,7 @@ Quotio là ứng dụng macOS để quản lý **CLIProxyAPI** - máy chủ prox
 > **Lưu ý**: Các IDE này chỉ dùng để theo dõi quota. Không thể sử dụng làm provider cho proxy.
 
 ### Agent tương thích
-Quotio có thể tự động cấu hình các công cụ sau:
+Edx có thể tự động cấu hình các công cụ sau:
 - Claude Code
 - Codex CLI
 - Gemini CLI
@@ -78,32 +78,32 @@ Quotio có thể tự động cấu hình các công cụ sau:
 ### Homebrew (Khuyến nghị)
 ```bash
 brew tap nguyenphutrong/tap
-brew install --cask quotio
+brew install --cask edx
 ```
 
 ### Tải xuống
-Tải file `.dmg` mới nhất từ trang [Releases](https://github.com/nguyenphutrong/quotio/releases).
+Tải file `.dmg` mới nhất từ trang [Releases](https://github.com/nguyenphutrong/edx/releases).
 
 > ⚠️ **Lưu ý**: Ứng dụng chưa được ký bằng chứng chỉ Apple Developer. Nếu macOS chặn ứng dụng, chạy lệnh sau:
 > ```bash
-> xattr -cr /Applications/Quotio.app
+> xattr -cr /Applications/Edx.app
 > ```
 
 ### Build từ source
 
 1. **Clone repo:**
    ```bash
-   git clone https://github.com/nguyenphutrong/quotio.git
-   cd Quotio
+   git clone https://github.com/nguyenphutrong/edx.git
+   cd Edx
    ```
 
 2. **Mở trong Xcode:**
    ```bash
-   open Quotio.xcodeproj
+   open Edx.xcodeproj
    ```
 
 3. **Build và chạy:**
-   - Chọn scheme "Quotio"
+   - Chọn scheme "Edx"
    - Nhấn `Cmd + R`
 
 > Ứng dụng sẽ tự động tải binary `CLIProxyAPI` trong lần chạy đầu tiên.
@@ -111,7 +111,7 @@ Tải file `.dmg` mới nhất từ trang [Releases](https://github.com/nguyenph
 ## 📖 Hướng dẫn sử dụng
 
 ### 1. Khởi động Server
-Mở Quotio và nhấn **Start** trên dashboard để khởi động proxy server.
+Mở Edx và nhấn **Start** trên dashboard để khởi động proxy server.
 
 ### 2. Kết nối Tài khoản
 Vào tab **Providers** → Chọn provider → Xác thực qua OAuth hoặc import credentials.
@@ -218,18 +218,18 @@ Tham gia cộng đồng Discord để được hỗ trợ, chia sẻ phản hồ
   <source
     media="(prefers-color-scheme: dark)"
     srcset="
-      https://api.star-history.com/svg?repos=nguyenphutrong/quotio&type=Date&theme=dark
+      https://api.star-history.com/svg?repos=nguyenphutrong/edx&type=Date&theme=dark
     "
   />
   <source
     media="(prefers-color-scheme: light)"
     srcset="
-      https://api.star-history.com/svg?repos=nguyenphutrong/quotio&type=Date
+      https://api.star-history.com/svg?repos=nguyenphutrong/edx&type=Date
     "
   />
   <img
     alt="Star History Chart"
-    src="https://api.star-history.com/svg?repos=nguyenphutrong/quotio&type=Date"
+    src="https://api.star-history.com/svg?repos=nguyenphutrong/edx&type=Date"
   />
 </picture>
 
@@ -241,8 +241,8 @@ Tham gia cộng đồng Discord để được hỗ trợ, chia sẻ phản hồ
 
 Chúng tôi không thể làm được điều này nếu thiếu các bạn. Cảm ơn! 🙏
 
-<a href="https://github.com/nguyenphutrong/quotio/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=nguyenphutrong/quotio" />
+<a href="https://github.com/nguyenphutrong/edx/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=nguyenphutrong/edx" />
 </a>
 
 ## 📄 Giấy phép

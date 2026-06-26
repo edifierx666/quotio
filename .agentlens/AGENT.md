@@ -42,12 +42,12 @@ Follow this protocol to understand the codebase efficiently:
 | Module | Files | Type | Description |
 | ------ | ----- | ---- | ----------- |
 | `` | 36 | root | Module |
-| `Quotio/Models` | 15 | implicit | Data models |
-| `Quotio/Services/Antigravity` | 7 | implicit | Module |
-| `Quotio/Services/QuotaFetchers` | 9 | implicit | Module |
-| `Quotio/Views/Components` | 27 | implicit | UI components |
-| `Quotio/Views/Onboarding` | 6 | implicit | Module |
-| `Quotio/Views/Screens` | 8 | implicit | Module |
+| `Edx/Models` | 15 | implicit | Data models |
+| `Edx/Services/Antigravity` | 7 | implicit | Module |
+| `Edx/Services/QuotaFetchers` | 9 | implicit | Module |
+| `Edx/Views/Components` | 27 | implicit | UI components |
+| `Edx/Views/Onboarding` | 6 | implicit | Module |
+| `Edx/Views/Screens` | 8 | implicit | Module |
 
 ## When Docs Seem Stale
 

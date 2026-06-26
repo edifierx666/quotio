@@ -9,69 +9,69 @@
 
 ## 🔴 High Priority
 
-### `WARNING` (Quotio/Services/LaunchAtLoginManager.swift:97)
+### `WARNING` (Edx/Services/LaunchAtLoginManager.swift:97)
 
 > if app is not in /Applications (registration may fail or be non-persistent)
 
 ## 🟢 Low Priority
 
-### `NOTE` (Quotio/Services/AgentDetectionService.swift:16)
+### `NOTE` (Edx/Services/AgentDetectionService.swift:16)
 
 > Only checks file existence (metadata), does NOT read file content
 
-### `NOTE` (Quotio/Services/AgentDetectionService.swift:92)
+### `NOTE` (Edx/Services/AgentDetectionService.swift:92)
 
 > May not work in GUI apps due to limited PATH inheritance
 
-### `NOTE` (Quotio/Services/AgentDetectionService.swift:98)
+### `NOTE` (Edx/Services/AgentDetectionService.swift:98)
 
 > Only checks file existence (metadata), does NOT read file content
 
-### `NOTE` (Quotio/Services/CLIExecutor.swift:33)
+### `NOTE` (Edx/Services/CLIExecutor.swift:33)
 
 > Only checks file existence (metadata), does NOT read file content
 
-### `NOTE` (Quotio/Services/Proxy/CLIProxyManager.swift:244)
+### `NOTE` (Edx/Services/Proxy/CLIProxyManager.swift:244)
 
 > Bridge mode default is registered in AppDelegate.applicationDidFinishLaunching()
 
-### `NOTE` (Quotio/Services/Proxy/CLIProxyManager.swift:362)
+### `NOTE` (Edx/Services/Proxy/CLIProxyManager.swift:362)
 
 > Changes take effect after proxy restart (CLIProxyAPI does not support live routing API)
 
-### `NOTE` (Quotio/Services/Proxy/CLIProxyManager.swift:1648)
+### `NOTE` (Edx/Services/Proxy/CLIProxyManager.swift:1648)
 
 > Notification is handled by AtomFeedUpdateService polling
 
-### `NOTE` (Quotio/ViewModels/AgentSetupViewModel.swift:452)
+### `NOTE` (Edx/ViewModels/AgentSetupViewModel.swift:452)
 
 > Actual fallback resolution happens at request time in ProxyBridge
 
-### `NOTE` (Quotio/ViewModels/QuotaViewModel.swift:279)
+### `NOTE` (Edx/ViewModels/QuotaViewModel.swift:279)
 
 > checkForProxyUpgrade() is now called inside startProxy()
 
-### `NOTE` (Quotio/ViewModels/QuotaViewModel.swift:352)
+### `NOTE` (Edx/ViewModels/QuotaViewModel.swift:352)
 
 > Cursor and Trae are NOT auto-refreshed - user must use "Scan for IDEs" (issue #29)
 
-### `NOTE` (Quotio/ViewModels/QuotaViewModel.swift:360)
+### `NOTE` (Edx/ViewModels/QuotaViewModel.swift:360)
 
 > Cursor and Trae removed from auto-refresh to address privacy concerns (issue #29)
 
-### `NOTE` (Quotio/ViewModels/QuotaViewModel.swift:1225)
+### `NOTE` (Edx/ViewModels/QuotaViewModel.swift:1225)
 
 > Cursor and Trae removed from auto-refresh (issue #29)
 
-### `NOTE` (Quotio/ViewModels/QuotaViewModel.swift:1252)
+### `NOTE` (Edx/ViewModels/QuotaViewModel.swift:1252)
 
 > Cursor and Trae require explicit user scan (issue #29)
 
-### `NOTE` (Quotio/ViewModels/QuotaViewModel.swift:1262)
+### `NOTE` (Edx/ViewModels/QuotaViewModel.swift:1262)
 
 > Cursor and Trae removed - require explicit scan (issue #29)
 
-### `NOTE` (Quotio/ViewModels/QuotaViewModel.swift:1317)
+### `NOTE` (Edx/ViewModels/QuotaViewModel.swift:1317)
 
 > Don't call detectActiveAccount() here - already set by switch operation
 

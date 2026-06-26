@@ -1,15 +1,15 @@
 #!/bin/bash
 
 # =============================================================================
-# Quotio Build Configuration & Utilities
+# Edx Build Configuration & Utilities
 # =============================================================================
 # Provides shared configuration and beautiful CLI output utilities
 # =============================================================================
 
 # Project settings
-export PROJECT_NAME="Quotio"
-export SCHEME="Quotio"
-export BUNDLE_ID="dev.quotio.desktop"
+export PROJECT_NAME="Edx"
+export SCHEME="Edx"
+export BUNDLE_ID="dev.edx.desktop"
 
 # Paths
 export PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -21,10 +21,10 @@ export RELEASE_DIR="${BUILD_DIR}/release"
 
 # Code signing (set via environment or keychain)
 export DEVELOPER_ID="${DEVELOPER_ID:-}"
-export NOTARIZATION_KEYCHAIN_PROFILE="${NOTARIZATION_KEYCHAIN_PROFILE:-quotio-notarization}"
+export NOTARIZATION_KEYCHAIN_PROFILE="${NOTARIZATION_KEYCHAIN_PROFILE:-edx-notarization}"
 
 # GitHub
-export GITHUB_REPO="nguyenphutrong/quotio"
+export GITHUB_REPO="nguyenphutrong/edx"
 
 # Sparkle
 export SPARKLE_PRIVATE_KEY_PATH="${PROJECT_DIR}/.sparkle_private_key"
@@ -109,7 +109,7 @@ fi
 # =============================================================================
 
 SCRIPT_START_TIME=""
-STEP_TIMERS_FILE="${TMPDIR:-/tmp}/.quotio_timers_$$"
+STEP_TIMERS_FILE="${TMPDIR:-/tmp}/.edx_timers_$$"
 
 start_timer() {
     SCRIPT_START_TIME=$(date +%s)

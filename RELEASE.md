@@ -1,4 +1,4 @@
-# Quotio Release Guide
+# Edx Release Guide
 
 ## Quick Start (Recommended)
 
@@ -57,12 +57,12 @@ gh auth login
 ### 3. Generate Sparkle Keys (if not already done)
 ```bash
 ./.sparkle/bin/generate_keys
-# Copy public key to Quotio/Info.plist → SUPublicEDKey
+# Copy public key to Edx/Info.plist → SUPublicEDKey
 ```
 
 ### 4. (Optional) Setup Notarization
 ```bash
-xcrun notarytool store-credentials "quotio-notarization" \
+xcrun notarytool store-credentials "edx-notarization" \
     --apple-id "your@email.com" \
     --team-id "YOUR_TEAM_ID"
 ```

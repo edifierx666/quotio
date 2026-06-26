@@ -1,5 +1,5 @@
 name: "\u2753 Question"
-description: Ask a question about Quotio usage or configuration
+description: Ask a question about Edx usage or configuration
 labels: ["question"]
 body:
   - type: markdown
@@ -8,9 +8,9 @@ body:
         Have a question? We're here to help!
         
         Before asking, please check:
-        - [README](https://github.com/nguyenphutrong/quotio#readme)
-        - [Discussions](https://github.com/nguyenphutrong/quotio/discussions)
-        - [Existing issues](https://github.com/nguyenphutrong/quotio/issues)
+        - [README](https://github.com/nguyenphutrong/edx#readme)
+        - [Discussions](https://github.com/nguyenphutrong/edx/discussions)
+        - [Existing issues](https://github.com/nguyenphutrong/edx/issues)
 
   - type: textarea
     id: question
@@ -58,9 +58,9 @@ body:
       required: false
 
   - type: input
-    id: quotio_version
+    id: edx_version
     attributes:
-      label: Quotio Version (optional)
+      label: Edx Version (optional)
       placeholder: "e.g., 0.6.0"
     validations:
       required: false

@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Quotio will be documented in this file.
+All notable changes to Edx will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -75,7 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Update `expired`/`expires_in`/`timestamp` correctly on Antigravity and OpenAI token refresh
 - **proxy**: Persist upstream proxy URL across restarts (#307) - thanks @ming 🎉
   - Sync proxy URL to CLIProxyAPI config on startup and settings change
-- **keychain**: Rebrand bundle identifier to `dev.quotio.desktop` with multi-layer keychain migration (#306, #313)
+- **keychain**: Rebrand bundle identifier to `dev.edx.desktop` with multi-layer keychain migration (#306, #313)
 - **i18n**: Troubleshooting section missing localization (#311) - thanks @darkedge 🎉
   - Replace 4 hardcoded English strings with localization keys
   - Add translations for EN/FR/VI/ZH-Hans
@@ -284,7 +284,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **agent-config**: Agent configuration persistence, proxy switching & backups (#178)
   - Load existing agent settings from disk and environment variables
-  - Toggle between routing through Quotio proxy or direct to providers
+  - Toggle between routing through Edx proxy or direct to providers
   - Automatic configuration backups before applying new settings
   - UI to view and restore from previous backups
 
@@ -403,7 +403,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **proxy**: Always route traffic through Quotio proxy endpoint (#131)
+- **proxy**: Always route traffic through Edx proxy endpoint (#131)
   - Remove incorrect fallback-based endpoint logic that bypassed ProxyBridge when Fallback was disabled
   - All external clients now connect through clientEndpoint for proper connection management and request logging
 

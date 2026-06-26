@@ -1,4 +1,4 @@
-# Quotio - Project Overview and Product Requirements Document (PRD)
+# Edx - Project Overview and Product Requirements Document (PRD)
 
 > **Last Updated**: December 27, 2024
 > **Version**: 1.0.0
@@ -20,7 +20,7 @@
 
 ## Project Purpose
 
-Quotio is a native macOS application that serves as the **command center for AI coding assistants**. It provides a graphical user interface for managing **CLIProxyAPI** - a local proxy server that powers AI coding agents.
+Edx is a native macOS application that serves as the **command center for AI coding assistants**. It provides a graphical user interface for managing **CLIProxyAPI** - a local proxy server that powers AI coding agents.
 
 ### Core Goals
 
@@ -38,7 +38,7 @@ Developers using AI coding assistants often need to:
 - Configure multiple CLI tools with consistent settings
 - Monitor real-time usage statistics
 
-Quotio solves these challenges by providing a unified management layer with automatic configuration and quota tracking.
+Edx solves these challenges by providing a unified management layer with automatic configuration and quota tracking.
 
 ---
 
@@ -156,7 +156,7 @@ Full localization for:
 
 ## Compatible CLI Agents
 
-Quotio can automatically detect and configure the following CLI coding tools:
+Edx can automatically detect and configure the following CLI coding tools:
 
 | Agent | Binary | Config Type | Config Files |
 |-------|--------|-------------|--------------|
@@ -184,7 +184,7 @@ Agents can be configured with custom model routing:
 
 ## App Modes
 
-Quotio supports two operating modes to accommodate different user needs:
+Edx supports two operating modes to accommodate different user needs:
 
 ### Full Mode (Default)
 
@@ -273,7 +273,7 @@ Lightweight mode for quota monitoring without proxy overhead:
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│                      Quotio (SwiftUI)                       │
+│                      Edx (SwiftUI)                       │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
 │  │  Dashboard  │  │   Quota     │  │     Providers       │  │

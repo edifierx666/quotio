@@ -1,5 +1,5 @@
 name: "\u2728 Feature Request"
-description: Suggest a new feature or enhancement for Quotio
+description: Suggest a new feature or enhancement for Edx
 labels: ["enhancement"]
 body:
   - type: markdown

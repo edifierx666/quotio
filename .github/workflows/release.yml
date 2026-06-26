@@ -12,8 +12,8 @@ on:
         type: string
 
 env:
-  PROJECT_NAME: Quotio
-  SCHEME: Quotio
+  PROJECT_NAME: Edx
+  SCHEME: Edx
 
 jobs:
   build-and-release:
@@ -136,11 +136,11 @@ jobs:
             
             ## Installation
 
-            Download `Quotio-${{ steps.version.outputs.VERSION }}.dmg` or `Quotio-${{ steps.version.outputs.VERSION }}.zip` below.
+            Download `Edx-${{ steps.version.outputs.VERSION }}.dmg` or `Edx-${{ steps.version.outputs.VERSION }}.zip` below.
 
             > ⚠️ **Note**: The app is not signed with an Apple Developer certificate. If macOS blocks the app, run:
             > ```bash
-            > xattr -cr /Applications/Quotio.app
+            > xattr -cr /Applications/Edx.app
             > ```
           prerelease: ${{ steps.version.outputs.IS_PRERELEASE == 'true' }}
 
@@ -175,10 +175,10 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
           # Check if there are changes to commit
-          if git diff --quiet CHANGELOG.md Quotio.xcodeproj/project.pbxproj; then
+          if git diff --quiet CHANGELOG.md Edx.xcodeproj/project.pbxproj; then
             echo "No changes to commit"
           else
-            git add CHANGELOG.md Quotio.xcodeproj/project.pbxproj
+            git add CHANGELOG.md Edx.xcodeproj/project.pbxproj
             git commit -m "chore: bump version to ${{ steps.version.outputs.VERSION }} [skip ci]"
             
             # Determine target branch. For tag-triggered releases, never guess
@@ -249,4 +249,4 @@ jobs:
             -H "Authorization: token ${{ secrets.TAP_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/nguyenphutrong/homebrew-tap/dispatches \
-            -d '{"event_type":"quotio-release","client_payload":{"version":"${{ steps.version.outputs.VERSION }}"}}'
+            -d '{"event_type":"edx-release","client_payload":{"version":"${{ steps.version.outputs.VERSION }}"}}'

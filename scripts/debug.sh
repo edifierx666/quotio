@@ -4,8 +4,8 @@ set -o pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "${SCRIPT_DIR}")"
-PROJECT_NAME="Quotio"
-SCHEME="Quotio"
+PROJECT_NAME="Edx"
+SCHEME="Edx"
 BUILD_DIR="${PROJECT_DIR}/build"
 
 # Colors for output

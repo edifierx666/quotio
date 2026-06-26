@@ -1,10 +1,10 @@
-# Quotio
+# Edx
 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="screenshots/menu_bar_dark.png" />
     <source media="(prefers-color-scheme: light)" srcset="screenshots/menu_bar.png" />
-    <img alt="Quotio Banner" src="screenshots/menu_bar.png" height="600" />
+    <img alt="Edx Banner" src="screenshots/menu_bar.png" height="600" />
   </picture>
 </p>
 
@@ -22,7 +22,7 @@
   <strong>macOS 上 AI 编程助手的终极控制中心。</strong>
 </p>
 
-Quotio 是一款原生 macOS 应用，用于管理 **CLIProxyAPI** ——为你的 AI 编程代理提供动力的本地代理服务器。它帮助你在一个地方管理多个 AI 账号、跟踪配额并配置 CLI 工具。
+Edx 是一款原生 macOS 应用，用于管理 **CLIProxyAPI** ——为你的 AI 编程代理提供动力的本地代理服务器。它帮助你在一个地方管理多个 AI 账号、跟踪配额并配置 CLI 工具。
 
 ## ✨ 功能特性
 
@@ -61,7 +61,7 @@ Quotio 是一款原生 macOS 应用，用于管理 **CLIProxyAPI** ——为你�
 > **注意**：这些 IDE 仅用于配额使用监控，不能作为代理的提供商。
 
 ### 兼容的 CLI Agent
-Quotio 可以自动配置以下工具使用你的集中式代理：
+Edx 可以自动配置以下工具使用你的集中式代理：
 - Claude Code
 - Codex CLI
 - Gemini CLI
@@ -78,32 +78,32 @@ Quotio 可以自动配置以下工具使用你的集中式代理：
 ### Homebrew（推荐）
 ```bash
 brew tap nguyenphutrong/tap
-brew install --cask quotio
+brew install --cask edx
 ```
 
 ### 下载
-从 [Releases](https://github.com/nguyenphutrong/quotio/releases) 页面下载最新的 `.dmg`。
+从 [Releases](https://github.com/nguyenphutrong/edx/releases) 页面下载最新的 `.dmg`。
 
 > ⚠️ **注意**：应用尚未使用 Apple Developer 证书签名。如果 macOS 阻止运行，请执行：
 > ```bash
-> xattr -cr /Applications/Quotio.app
+> xattr -cr /Applications/Edx.app
 > ```
 
 ### 从源码构建
 
 1. **克隆仓库：**
    ```bash
-   git clone https://github.com/nguyenphutrong/quotio.git
-   cd Quotio
+   git clone https://github.com/nguyenphutrong/edx.git
+   cd Edx
    ```
 
 2. **在 Xcode 中打开：**
    ```bash
-   open Quotio.xcodeproj
+   open Edx.xcodeproj
    ```
 
 3. **构建并运行：**
-   - 选择 “Quotio” scheme
+   - 选择 “Edx” scheme
    - 按下 `Cmd + R` 构建并运行
 
 > 应用首次启动时会自动下载 `CLIProxyAPI` 二进制文件。
@@ -111,7 +111,7 @@ brew install --cask quotio
 ## 📖 使用方法
 
 ### 1. 启动服务器
-打开 Quotio，在仪表盘点击 **Start** 初始化本地代理服务器。
+打开 Edx，在仪表盘点击 **Start** 初始化本地代理服务器。
 
 ### 2. 连接账号
 进入 **Providers** 标签页 → 点击一个提供商 → 通过 OAuth 认证或导入凭据。
@@ -128,7 +128,7 @@ brew install --cask quotio
 
 - **端口**：更改代理监听端口
 - **路由策略**：轮询（Round Robin）或先满（Fill First）
-- **自动启动**：Quotio 打开时自动启动代理
+- **自动启动**：Edx 打开时自动启动代理
 - **通知**：开关各类提醒
 
 ## 📸 截图
@@ -218,18 +218,18 @@ brew install --cask quotio
   <source
     media="(prefers-color-scheme: dark)"
     srcset="
-      https://api.star-history.com/svg?repos=nguyenphutrong/quotio&type=Date&theme=dark
+      https://api.star-history.com/svg?repos=nguyenphutrong/edx&type=Date&theme=dark
     "
   />
   <source
     media="(prefers-color-scheme: light)"
     srcset="
-      https://api.star-history.com/svg?repos=nguyenphutrong/quotio&type=Date
+      https://api.star-history.com/svg?repos=nguyenphutrong/edx&type=Date
     "
   />
   <img
     alt="Star History Chart"
-    src="https://api.star-history.com/svg?repos=nguyenphutrong/quotio&type=Date"
+    src="https://api.star-history.com/svg?repos=nguyenphutrong/edx&type=Date"
   />
 </picture>
 
@@ -241,8 +241,8 @@ brew install --cask quotio
 
 没有你们，我们无法做到这一切。感谢！🙏
 
-<a href="https://github.com/nguyenphutrong/quotio/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=nguyenphutrong/quotio" />
+<a href="https://github.com/nguyenphutrong/edx/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=nguyenphutrong/edx" />
 </a>
 
 ## 📄 许可证

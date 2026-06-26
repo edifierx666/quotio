@@ -1,4 +1,4 @@
-# Quotio - Codebase Summary
+# Edx - Codebase Summary
 
 > **Last Updated**: January 2, 2025  
 > **Swift Version**: 6.0  
@@ -70,15 +70,15 @@
 ### Application Layer
 
 ```
-Quotio/
-├── QuotioApp.swift          # App entry point, lifecycle management
+Edx/
+├── EdxApp.swift          # App entry point, lifecycle management
 └── Info.plist               # App metadata and permissions
 ```
 
 ### Models Layer
 
 ```
-Quotio/Models/
+Edx/Models/
 ├── Models.swift             # Core data types (AIProvider, AuthFile, etc.)
 ├── AgentModels.swift        # CLI agent configuration types
 ├── AntigravityActiveAccount.swift # Antigravity account model and switch state
@@ -89,7 +89,7 @@ Quotio/Models/
 ### Services Layer
 
 ```
-Quotio/Services/
+Edx/Services/
 ├── CLIProxyManager.swift        # Proxy process lifecycle
 ├── ManagementAPIClient.swift    # HTTP client for proxy API
 ├── StatusBarManager.swift       # NSStatusBar management
@@ -112,7 +112,7 @@ Quotio/Services/
 ### ViewModels Layer
 
 ```
-Quotio/ViewModels/
+Edx/ViewModels/
 ├── QuotaViewModel.swift         # Main app state container
 └── AgentSetupViewModel.swift    # Agent configuration state
 ```
@@ -120,7 +120,7 @@ Quotio/ViewModels/
 ### Views Layer
 
 ```
-Quotio/Views/
+Edx/Views/
 ├── Components/
 │   ├── AccountRow.swift         # Account row with switch button
 │   ├── AgentCard.swift          # Agent display card
@@ -143,7 +143,7 @@ Quotio/Views/
 ### Assets
 
 ```
-Quotio/Assets.xcassets/
+Edx/Assets.xcassets/
 ├── AppIcon.appiconset/          # App icons (production)
 ├── AppIconDev.appiconset/       # App icons (development)
 ├── MenuBarIcons/                # Provider icons for menu bar
@@ -159,7 +159,7 @@ Quotio/Assets.xcassets/
 
 | File | Purpose |
 |------|---------|
-| **QuotioApp.swift** | App entry, scene definition, AppDelegate, ContentView, menu bar orchestration |
+| **EdxApp.swift** | App entry, scene definition, AppDelegate, ContentView, menu bar orchestration |
 
 ### Core Data Types
 
@@ -208,7 +208,7 @@ Quotio/Assets.xcassets/
 ### Application Startup Flow
 
 ```
-1. QuotioApp.init()
+1. EdxApp.init()
    │
    ├─▶ @State viewModel = QuotaViewModel()
    │   └─▶ CLIProxyManager.shared initialized
@@ -353,9 +353,9 @@ Quotio/Assets.xcassets/
 
 | File/Directory | Purpose |
 |----------------|---------|
-| **Quotio.xcodeproj/** | Xcode project container |
+| **Edx.xcodeproj/** | Xcode project container |
 | **project.pbxproj** | Project settings, targets, build phases |
-| **xcschemes/Quotio.xcscheme** | Build scheme configuration |
+| **xcschemes/Edx.xcscheme** | Build scheme configuration |
 | **Package.resolved** | Swift Package Manager dependency lock |
 
 ### Build Configurations
@@ -384,7 +384,7 @@ Quotio/Assets.xcassets/
 | File | Purpose |
 |------|---------|
 | **Info.plist** | App metadata, permissions, URL schemes |
-| **Quotio.entitlements** | Sandbox and capability entitlements |
+| **Edx.entitlements** | Sandbox and capability entitlements |
 
 ---
 
@@ -393,7 +393,7 @@ Quotio/Assets.xcassets/
 ### Application Support
 
 ```
-~/Library/Application Support/Quotio/
+~/Library/Application Support/Edx/
 ├── CLIProxyAPI          # Downloaded proxy binary
 └── config.yaml          # Proxy configuration
 ```
@@ -433,7 +433,7 @@ Quotio/Assets.xcassets/
 ## Localization Structure
 
 ```
-Quotio/
+Edx/
 └── Resources/
     ├── en.lproj/
     │   └── Localizable.strings

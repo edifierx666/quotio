@@ -4,7 +4,7 @@
 
 Symbol maps for 9 large files in this module.
 
-## Quotio/QuotioApp.swift (831 lines)
+## Edx/EdxApp.swift (831 lines)
 
 | Line | Kind | Name | Visibility |
 | ---- | ---- | ---- | ---------- |
@@ -17,7 +17,7 @@ Symbol maps for 9 large files in this module.
 | 136 | fn | resolveQuotaData | (private) |
 | 155 | fn | normalizedCodexKey | (private) |
 | 163 | fn | extractEmail | (private) |
-| 172 | struct | QuotioApp | (internal) |
+| 172 | struct | EdxApp | (internal) |
 | 285 | class | AppDelegate | (internal) |
 | 295 | fn | applicationDidFinishLaunching | (internal) |
 | 372 | fn | applicationShouldTerminateAfterLastWindowClosed | (internal) |
@@ -40,7 +40,7 @@ Symbol maps for 9 large files in this module.
 | 772 | struct | ProxyStatusRow | (internal) |
 | 803 | struct | QuotaRefreshStatusRow | (internal) |
 
-## Quotio/Services/AgentConfigurationService.swift (1610 lines)
+## Edx/Services/AgentConfigurationService.swift (1610 lines)
 
 | Line | Kind | Name | Visibility |
 | ---- | ---- | ---- | ---------- |
@@ -83,7 +83,7 @@ Symbol maps for 9 large files in this module.
 | 1480 | fn | fetchAvailableModels | (internal) |
 | 1535 | fn | testConnection | (internal) |
 
-## Quotio/Services/AtomFeedUpdateService.swift (557 lines)
+## Edx/Services/AtomFeedUpdateService.swift (557 lines)
 
 | Line | Kind | Name | Visibility |
 | ---- | ---- | ---- | ---------- |
@@ -92,7 +92,7 @@ Symbol maps for 9 large files in this module.
 | 35 | struct | CachedFeedState | (internal) |
 | 44 | class | AtomFeedUpdateService | (internal) |
 | 110 | fn | checkForCLIProxyUpdate | (internal) |
-| 163 | fn | checkForQuotioUpdate | (internal) |
+| 163 | fn | checkForEdxUpdate | (internal) |
 | 208 | fn | forceCheckForCLIProxyUpdate | (internal) |
 | 223 | fn | startPolling | (internal) |
 | 245 | fn | stopPolling | (internal) |
@@ -114,7 +114,7 @@ Symbol maps for 9 large files in this module.
 | 494 | fn | parser | (internal) |
 | 539 | enum | AtomFeedError | (internal) |
 
-## Quotio/Services/ManagementAPIClient.swift (732 lines)
+## Edx/Services/ManagementAPIClient.swift (732 lines)
 
 | Line | Kind | Name | Visibility |
 | ---- | ---- | ---- | ---------- |
@@ -177,7 +177,7 @@ Symbol maps for 9 large files in this module.
 | 708 | method | init | (internal) |
 | 722 | fn | encode | (internal) |
 
-## Quotio/Services/Proxy/CLIProxyManager.swift (2351 lines)
+## Edx/Services/Proxy/CLIProxyManager.swift (2351 lines)
 
 | Line | Kind | Name | Visibility |
 | ---- | ---- | ---- | ---------- |
@@ -262,7 +262,7 @@ Symbol maps for 9 large files in this module.
 | 2296 | fn | resolveBundledPlusBinaryPath | (private) |
 | 2301 | fn | firstExistingRegularFile | (internal) |
 
-## Quotio/Services/Proxy/ProxyBridge.swift (1093 lines)
+## Edx/Services/Proxy/ProxyBridge.swift (1093 lines)
 
 | Line | Kind | Name | Visibility |
 | ---- | ---- | ---- | ---------- |
@@ -276,7 +276,7 @@ Symbol maps for 9 large files in this module.
 | 254 | fn | handleNewConnection | (private) |
 | 472 | fn | createFallbackContext | (private) |
 
-## Quotio/Services/StatusBarMenuBuilder.swift (1470 lines)
+## Edx/Services/StatusBarMenuBuilder.swift (1470 lines)
 
 | Line | Kind | Name | Visibility |
 | ---- | ---- | ---- | ---------- |
@@ -327,7 +327,7 @@ Symbol maps for 9 large files in this module.
 | 1398 | struct | MenuActionsView | (private) |
 | 1436 | struct | MenuBarActionButton | (private) |
 
-## Quotio/ViewModels/QuotaViewModel.swift (1982 lines)
+## Edx/ViewModels/QuotaViewModel.swift (1982 lines)
 
 | Line | Kind | Name | Visibility |
 | ---- | ---- | ---- | ---------- |

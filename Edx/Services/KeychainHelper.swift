@@ -14,8 +14,10 @@ enum KeychainHelper {
     private static let remoteService = "dev.edx.desktop.remote-management"
     private static let localService = "dev.edx.desktop.local-management"
     private static let warpService = "dev.edx.desktop.warp"
+    private static let githubService = "dev.edx.desktop.github"
     private static let localManagementAccount = "local-management-key"
     private static let warpTokensAccount = "warp-tokens"
+    private static let githubTokenAccount = "github-api-token"
     private static let localManagementDefaultsKey = "managementKey"
     private static let warpTokensDefaultsKey = "warpTokens"
 
@@ -98,6 +100,26 @@ enum KeychainHelper {
             deleteData(service: legacy, account: localManagementAccount)
         }
         UserDefaults.standard.removeObject(forKey: localManagementDefaultsKey)
+    }
+
+    // MARK: - GitHub API Token
+
+    @discardableResult
+    static func saveGitHubToken(_ token: String) -> Bool {
+        guard let data = token.data(using: .utf8) else { return false }
+        let saved = saveData(data, service: githubService, account: githubTokenAccount)
+        if !saved {
+            Log.keychain("Failed to save GitHub token")
+        }
+        return saved
+    }
+
+    static func getGitHubToken() -> String? {
+        readString(service: githubService, account: githubTokenAccount)
+    }
+
+    static func deleteGitHubToken() {
+        deleteData(service: githubService, account: githubTokenAccount)
     }
 
     static func saveWarpTokens(_ data: Data) -> Bool {

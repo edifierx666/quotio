@@ -23188,32 +23188,496 @@
         }
       }
     },
-    "custom.service.update.checkSuccess": {
+    "custom.service.update.upToDate": {
       "extractionState": "manual",
       "localizations": {
         "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Update check complete"
-          }
+          "stringUnit": { "state": "translated", "value": "Up to date (%@)" }
         },
         "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "更新检查完成"
-          }
+          "stringUnit": { "state": "translated", "value": "已是最新版本（%@）" }
         },
         "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Recherche de mise à jour terminée"
-          }
+          "stringUnit": { "state": "translated", "value": "À jour (%@)" }
         },
         "vi": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Đã kiểm tra cập nhật xong"
-          }
+          "stringUnit": { "state": "translated", "value": "Đã là mới nhất (%@)" }
+        }
+      }
+    },
+    "custom.service.update.ignored": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Ignored %@" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "已忽略 %@" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Ignoré %@" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Đã bỏ qua %@" }
+        }
+      }
+    },
+    "custom.service.update.ignore": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Ignore this version" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "忽略此版本" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Ignorer cette version" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Bỏ qua phiên bản này" }
+        }
+      }
+    },
+    "custom.service.update.clearIgnore": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Stop ignoring this version" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "取消忽略此版本" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Ne plus ignorer cette version" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Ngừng bỏ qua phiên bản này" }
+        }
+      }
+    },
+    "custom.service.update.updating": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Updating…" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "更新中…" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Mise à jour…" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Đang cập nhật…" }
+        }
+      }
+    },
+    "custom.service.update.updateNow": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Update now" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "立即更新" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Mettre à jour" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Cập nhật ngay" }
+        }
+      }
+    },
+    "custom.service.update.updateSuccess": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Update finished" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "更新完成" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Mise à jour terminée" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Đã cập nhật xong" }
+        }
+      }
+    },
+    "custom.service.update.updateFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Update failed. Check the logs." }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "更新失败，请查看日志。" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Échec de la mise à jour. Consultez les journaux." }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Cập nhật thất bại. Hãy kiểm tra nhật ký." }
+        }
+      }
+    },
+    "custom.service.update.available.help": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Update options" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "更新选项" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Options de mise à jour" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Tùy chọn cập nhật" }
+        }
+      }
+    },
+    "custom.service.update.githubToken": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "GitHub access token" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "GitHub 访问令牌" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Jeton d'accès GitHub" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Mã truy cập GitHub" }
+        }
+      }
+    },
+    "custom.service.update.githubToken.help": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Optional. A personal access token raises the API limit from 60 to 5000 requests/hour. Stored securely in the Keychain. A classic token with no scopes (public repos) is enough." }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "可选。个人访问令牌可将 API 限额从 60 次/小时提升到 5000 次/小时，安全保存在钥匙串中。公开仓库使用无任何权限的经典令牌即可。" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Facultatif. Un jeton d'accès personnel augmente la limite de 60 à 5000 requêtes/heure. Stocké de façon sécurisée dans le Trousseau. Un jeton classique sans portée suffit pour les dépôts publics." }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Tùy chọn. Mã truy cập cá nhân nâng giới hạn API từ 60 lên 5000 yêu cầu/giờ. Lưu an toàn trong Keychain. Với kho công khai, mã cổ điển không cần quyền là đủ." }
+        }
+      }
+    },
+    "custom.service.update.githubToken.clear": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Remove token" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "移除令牌" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Supprimer le jeton" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Xóa mã" }
+        }
+      }
+    },
+    "custom.service.update.markCurrent": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Mark as current version" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "标记为当前版本" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Marquer comme version actuelle" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Đánh dấu là phiên bản hiện tại" }
+        }
+      }
+    },
+    "custom.service.update.checkAll": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Check all for updates" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "检查全部更新" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Vérifier toutes les mises à jour" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Kiểm tra tất cả cập nhật" }
+        }
+      }
+    },
+    "custom.service.update.autoCheck": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Check for updates automatically" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "自动检查更新" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Vérifier les mises à jour automatiquement" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Tự động kiểm tra cập nhật" }
+        }
+      }
+    },
+    "custom.service.update.interval": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Check interval" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "检查间隔" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Intervalle de vérification" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Khoảng thời gian kiểm tra" }
+        }
+      }
+    },
+    "custom.service.update.interval.1h": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Every hour" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "每小时" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Toutes les heures" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Mỗi giờ" }
+        }
+      }
+    },
+    "custom.service.update.interval.6h": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Every 6 hours" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "每 6 小时" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Toutes les 6 heures" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Mỗi 6 giờ" }
+        }
+      }
+    },
+    "custom.service.update.interval.12h": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Every 12 hours" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "每 12 小时" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Toutes les 12 heures" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Mỗi 12 giờ" }
+        }
+      }
+    },
+    "custom.service.update.interval.24h": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Every day" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "每天" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Chaque jour" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Mỗi ngày" }
+        }
+      }
+    },
+    "custom.service.field.versionCommand": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Version command" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "版本检测命令" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Commande de version" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Lệnh kiểm tra phiên bản" }
+        }
+      }
+    },
+    "custom.service.field.versionCommand.placeholder": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "e.g. mytool --version" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "例如 mytool --version" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "ex. mytool --version" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "ví dụ mytool --version" }
+        }
+      }
+    },
+    "custom.service.field.versionCommand.help": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Command run to detect the installed version. Leave empty to use \"<executable> --version\". Supports v1.2.3, 1.2.3, and date formats." }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "用于检测已安装版本的命令。留空则默认使用「<可执行文件> --version」。支持 v1.2.3、1.2.3 和日期格式。" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Commande exécutée pour détecter la version installée. Laissez vide pour utiliser « <exécutable> --version ». Prend en charge v1.2.3, 1.2.3 et les formats de date." }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Lệnh chạy để phát hiện phiên bản đã cài. Để trống để dùng \"<tệp thực thi> --version\". Hỗ trợ v1.2.3, 1.2.3 và định dạng ngày." }
+        }
+      }
+    },
+    "custom.service.field.updateCommand": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Update command" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "更新命令" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Commande de mise à jour" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Lệnh cập nhật" }
+        }
+      }
+    },
+    "custom.service.field.updateCommand.placeholder": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "e.g. brew upgrade mytool" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "例如 brew upgrade mytool" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "ex. brew upgrade mytool" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "ví dụ brew upgrade mytool" }
+        }
+      }
+    },
+    "custom.service.field.updateCommand.help": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Command run when you choose \"Update now\". After it finishes, the version is re-detected. Leave empty to just open the release page." }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "点击「立即更新」时执行的命令。执行完成后会重新检测版本。留空则仅打开 Release 页面。" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Commande exécutée lorsque vous choisissez « Mettre à jour ». Une fois terminée, la version est redétectée. Laissez vide pour ouvrir la page de release." }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Lệnh chạy khi bạn chọn \"Cập nhật ngay\". Sau khi xong, phiên bản được phát hiện lại. Để trống để chỉ mở trang phát hành." }
+        }
+      }
+    },
+    "custom.service.field.currentVersion": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Current version" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "当前版本" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Version actuelle" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Phiên bản hiện tại" }
+        }
+      }
+    },
+    "custom.service.field.currentVersion.placeholder": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "e.g. v1.2.0" }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "例如 v1.2.0" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "ex. v1.2.0" }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "ví dụ v1.2.0" }
+        }
+      }
+    },
+    "custom.service.field.currentVersion.help": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": { "state": "translated", "value": "Installed version. Auto-detected via the version command on each check; set it manually only to override detection." }
+        },
+        "zh-Hans": {
+          "stringUnit": { "state": "translated", "value": "已安装版本。每次检查时会通过版本检测命令自动获取；手动填写仅用于覆盖自动检测结果。" }
+        },
+        "fr": {
+          "stringUnit": { "state": "translated", "value": "Version installée. Détectée automatiquement via la commande de version à chaque vérification ; renseignez-la manuellement uniquement pour remplacer la détection." }
+        },
+        "vi": {
+          "stringUnit": { "state": "translated", "value": "Phiên bản đã cài. Tự động phát hiện qua lệnh kiểm tra phiên bản mỗi lần kiểm tra; chỉ nhập thủ công để ghi đè." }
         }
       }
     },

@@ -64,6 +64,9 @@ final class AppBootstrap {
         // Launch any user-defined services flagged for auto-start.
         CustomServiceManager.shared.startAutoStartServices()
 
+        // Begin automatic update checks for services with a configured repository.
+        CustomServiceManager.shared.startAutoUpdateChecks()
+
         #if canImport(Sparkle)
         UpdaterService.shared.checkForUpdatesInBackground()
         #endif

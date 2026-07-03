@@ -15,6 +15,11 @@ struct CustomServicesScreen: View {
     @State private var logViewerService: CustomService?
     @State private var serviceToDelete: CustomService?
 
+    @AppStorage(CustomServiceManager.autoCheckEnabledKey) private var autoCheckEnabled = true
+    @AppStorage(CustomServiceManager.autoCheckIntervalHoursKey) private var autoCheckIntervalHours = 6
+
+    @State private var showTokenSheet = false
+
     var body: some View {
         Group {
             if manager.services.isEmpty {
@@ -25,6 +30,11 @@ struct CustomServicesScreen: View {
         }
         .navigationTitle("nav.customServices".localized())
         .toolbar {
+            if manager.services.contains(where: { $0.githubRepository != nil }) {
+                ToolbarItem {
+                    updatesMenu
+                }
+            }
             ToolbarItem {
                 Button {
                     openEditor()
@@ -45,6 +55,9 @@ struct CustomServicesScreen: View {
         }
         .sheet(item: $logViewerService) { service in
             CustomServiceLogViewer(service: service)
+        }
+        .sheet(isPresented: $showTokenSheet) {
+            GitHubTokenSheet()
         }
         .alert(
             "custom.service.delete.title".localized(),
@@ -98,6 +111,10 @@ struct CustomServicesScreen: View {
                         onLogs: { logViewerService = service },
                         onCheckUpdates: { manager.checkForUpdates(service) },
                         onOpenRelease: { manager.openLatestRelease(for: service) },
+                        onUpdate: { manager.performUpdate(service) },
+                        onMarkCurrent: { manager.markLatestAsCurrent(for: service) },
+                        onIgnoreVersion: { manager.ignoreLatestVersion(for: service) },
+                        onClearIgnore: { manager.clearIgnoredVersion(for: service) },
                         onDelete: { serviceToDelete = service }
                     )
                 }
@@ -108,6 +125,47 @@ struct CustomServicesScreen: View {
                 Text("custom.service.footer".localized())
             }
         }
+    }
+
+    // MARK: - Updates Menu
+
+    private var updatesMenu: some View {
+        Menu {
+            Button {
+                manager.checkAllForUpdates(force: true)
+            } label: {
+                Label("custom.service.update.checkAll".localized(), systemImage: "arrow.down.circle")
+            }
+
+            Divider()
+
+            Toggle("custom.service.update.autoCheck".localized(), isOn: $autoCheckEnabled)
+                .onChange(of: autoCheckEnabled) { _, _ in
+                    manager.reconfigureAutoUpdateChecks()
+                }
+
+            Picker("custom.service.update.interval".localized(), selection: $autoCheckIntervalHours) {
+                Text("custom.service.update.interval.1h".localized()).tag(1)
+                Text("custom.service.update.interval.6h".localized()).tag(6)
+                Text("custom.service.update.interval.12h".localized()).tag(12)
+                Text("custom.service.update.interval.24h".localized()).tag(24)
+            }
+            .disabled(!autoCheckEnabled)
+            .onChange(of: autoCheckIntervalHours) { _, _ in
+                manager.reconfigureAutoUpdateChecks()
+            }
+
+            Divider()
+
+            Button {
+                showTokenSheet = true
+            } label: {
+                Label("custom.service.update.githubToken".localized(), systemImage: "key")
+            }
+        } label: {
+            Label("custom.service.update.checkAll".localized(), systemImage: "arrow.triangle.2.circlepath")
+        }
+        .help("custom.service.update.checkAll".localized())
     }
 
     private func toggle(_ service: CustomService) {
@@ -142,6 +200,10 @@ private struct CustomServiceRow: View {
     let onLogs: () -> Void
     let onCheckUpdates: () -> Void
     let onOpenRelease: () -> Void
+    let onUpdate: () -> Void
+    let onMarkCurrent: () -> Void
+    let onIgnoreVersion: () -> Void
+    let onClearIgnore: () -> Void
     let onDelete: () -> Void
 
     @State private var manager = CustomServiceManager.shared
@@ -235,12 +297,39 @@ private struct CustomServiceRow: View {
             .help("custom.service.update.check".localized())
         }
 
-        if service.updateStatus?.hasRelease == true {
-            Button(action: onOpenRelease) {
-                Image(systemName: "arrow.up.right.square")
+        if updateCheckState.isUpdating {
+            SmallProgressView(size: 12)
+                .help("custom.service.update.updating".localized())
+        } else if service.isUpdateAvailable {
+            Menu {
+                if service.normalizedUpdateCommand != nil {
+                    Button(action: onUpdate) {
+                        Label("custom.service.update.updateNow".localized(), systemImage: "arrow.down.app")
+                    }
+                    Divider()
+                }
+                Button(action: onOpenRelease) {
+                    Label("custom.service.update.openRelease".localized(), systemImage: "arrow.up.right.square")
+                }
+                Button(action: onMarkCurrent) {
+                    Label("custom.service.update.markCurrent".localized(), systemImage: "checkmark.circle")
+                }
+                Button(action: onIgnoreVersion) {
+                    Label("custom.service.update.ignore".localized(), systemImage: "xmark.circle")
+                }
+            } label: {
+                Image(systemName: service.normalizedUpdateCommand != nil ? "arrow.down.app" : "arrow.up.right.square")
+            }
+            .menuIndicator(.hidden)
+            .buttonStyle(.borderless)
+            .fixedSize()
+            .help("custom.service.update.available.help".localized())
+        } else if isLatestIgnored {
+            Button(action: onClearIgnore) {
+                Image(systemName: "arrow.uturn.backward.circle")
             }
             .buttonStyle(.borderless)
-            .help("custom.service.update.openRelease".localized())
+            .help("custom.service.update.clearIgnore".localized())
         }
 
         Button(action: onEdit) {
@@ -261,7 +350,17 @@ private struct CustomServiceRow: View {
         manager.updateCheckState(for: service.id)
     }
 
+    /// True when the latest discovered release is the one the user chose to skip.
+    private var isLatestIgnored: Bool {
+        guard let status = service.updateStatus, status.hasRelease,
+              let ignored = service.ignoredVersion else { return false }
+        return SemanticVersion.compare(ignored, status.latestVersion) == .orderedSame
+    }
+
     private var updateText: String? {
+        if updateCheckState.isUpdating {
+            return "custom.service.update.updating".localized()
+        }
         if updateCheckState.isChecking {
             return "custom.service.update.checking".localized()
         }
@@ -274,13 +373,21 @@ private struct CustomServiceRow: View {
         guard let updateStatus = service.updateStatus, updateStatus.hasRelease else {
             return service.githubRepository == nil ? nil : "custom.service.update.notChecked".localized()
         }
-        return String(format: "custom.service.update.available".localized(), updateStatus.latestVersion)
+        if service.isUpdateAvailable {
+            return String(format: "custom.service.update.available".localized(), updateStatus.latestVersion)
+        }
+        if let ignored = service.ignoredVersion,
+           SemanticVersion.compare(ignored, updateStatus.latestVersion) == .orderedSame {
+            return String(format: "custom.service.update.ignored".localized(), ignored)
+        }
+        return String(format: "custom.service.update.upToDate".localized(), updateStatus.latestVersion)
     }
 
     private var updateColor: Color {
         if updateCheckState.isChecking { return .secondary }
         if updateCheckState.message != nil || service.updateStatus?.errorMessage != nil { return .orange }
-        return service.updateStatus?.hasRelease == true ? .blue : .secondary
+        if service.isUpdateAvailable { return .blue }
+        return .secondary
     }
 
     private var statusColor: Color {
@@ -311,5 +418,63 @@ private struct CustomServiceRow: View {
         if seconds < 60 { return "\(seconds)s" }
         if seconds < 3600 { return "\(seconds / 60)m" }
         return "\(seconds / 3600)h \((seconds % 3600) / 60)m"
+    }
+}
+
+// MARK: - GitHub Token Sheet
+
+/// Lets the user store a GitHub personal access token (in the Keychain) so
+/// update checks use the authenticated rate limit (5000/hour vs 60/hour).
+private struct GitHubTokenSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var token: String = KeychainHelper.getGitHubToken() ?? ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 10) {
+                Image(systemName: "key.fill")
+                    .font(.title2)
+                    .foregroundStyle(.tint)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("custom.service.update.githubToken".localized())
+                        .font(.headline)
+                    Text("custom.service.update.githubToken.help".localized())
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            SecureField("ghp_…", text: $token)
+                .textFieldStyle(.roundedBorder)
+                .font(.system(.body, design: .monospaced))
+
+            HStack {
+                Button("custom.service.update.githubToken.clear".localized(), role: .destructive) {
+                    KeychainHelper.deleteGitHubToken()
+                    token = ""
+                    dismiss()
+                }
+                .disabled(KeychainHelper.getGitHubToken() == nil)
+
+                Spacer()
+
+                Button("action.cancel".localized()) {
+                    dismiss()
+                }
+                Button("action.save".localized()) {
+                    let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if trimmed.isEmpty {
+                        KeychainHelper.deleteGitHubToken()
+                    } else {
+                        KeychainHelper.saveGitHubToken(trimmed)
+                    }
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(20)
+        .frame(width: 480)
     }
 }

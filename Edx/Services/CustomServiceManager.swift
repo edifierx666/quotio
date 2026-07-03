@@ -72,8 +72,31 @@ final class CustomServiceManager {
     /// Ids that were terminated intentionally (stop/restart), to suppress crash reporting.
     @ObservationIgnored private var expectedTerminations: Set<UUID> = []
 
+    /// Repeating timer that drives automatic update checks.
+    @ObservationIgnored private var autoCheckTimer: Timer?
+
+    /// When GitHub rate-limits us, automatic checks pause until this time.
+    @ObservationIgnored private var rateLimitedUntil: Date?
+
     private let defaults = UserDefaults.standard
     private let storageKey = "customServices"
+
+    // MARK: - Auto-check settings
+
+    /// UserDefaults keys shared with the settings UI (`@AppStorage`).
+    static let autoCheckEnabledKey = "customServiceAutoCheckEnabled"
+    static let autoCheckIntervalHoursKey = "customServiceAutoCheckIntervalHours"
+
+    /// Whether automatic update checks are enabled (default on).
+    var autoCheckEnabled: Bool {
+        defaults.object(forKey: Self.autoCheckEnabledKey) as? Bool ?? true
+    }
+
+    /// Interval between automatic checks, in hours (default 6, clamped to >= 1).
+    var autoCheckIntervalHours: Int {
+        let stored = defaults.object(forKey: Self.autoCheckIntervalHoursKey) as? Int ?? 6
+        return max(1, stored)
+    }
 
     private init() {
         self.services = Self.loadServices(from: defaults, key: storageKey)
@@ -100,6 +123,10 @@ final class CustomServiceManager {
     func addService(_ service: CustomService) {
         services.append(service)
         persist()
+        // Detect installed version and check for updates right away.
+        if service.githubRepository != nil {
+            checkForUpdates(service, silent: true)
+        }
     }
 
     func updateService(_ service: CustomService) {
@@ -109,10 +136,18 @@ final class CustomServiceManager {
         if updated.githubRepository == existing.githubRepository {
             updated.updateStatus = service.updateStatus ?? existing.updateStatus
         } else {
+            // Repository changed: previous release info and skip choice no longer apply.
             updated.updateStatus = nil
+            updated.ignoredVersion = nil
         }
+        let repositoryChanged = updated.githubRepository != existing.githubRepository
+        let versionCommandChanged = updated.versionCommand != existing.versionCommand
         services[index] = updated
         persist()
+        // Re-detect version / re-check when the repo or version command changed.
+        if updated.githubRepository != nil, repositoryChanged || versionCommandChanged {
+            checkForUpdates(updated, silent: true)
+        }
     }
 
     func deleteService(_ service: CustomService) {
@@ -166,45 +201,204 @@ final class CustomServiceManager {
 
     // MARK: - Updates
 
-    func checkForUpdates(_ service: CustomService) {
+    /// Check a single service for a newer GitHub release.
+    /// - Parameter silent: when true, suppresses the transient success/error
+    ///   banner text (used by automatic background checks). The persisted
+    ///   `updateStatus` is still updated either way.
+    func checkForUpdates(_ service: CustomService, silent: Bool = false) {
         guard let index = services.firstIndex(where: { $0.id == service.id }) else { return }
         guard let repositoryText = services[index].githubRepository,
               let repository = GitHubRepository.normalize(repositoryText) else {
-            updateCheckStates[service.id] = CustomServiceUpdateCheckState(
-                isChecking: false,
-                requestID: (updateCheckStates[service.id]?.requestID ?? 0) + 1,
-                message: "custom.service.update.error.invalidRepository".localized()
-            )
+            if !silent {
+                updateCheckStates[service.id] = CustomServiceUpdateCheckState(
+                    isChecking: false,
+                    requestID: (updateCheckStates[service.id]?.requestID ?? 0) + 1,
+                    message: "custom.service.update.error.invalidRepository".localized()
+                )
+            }
             return
         }
+
+        // Avoid stacking a second request while one is already in flight.
+        guard updateCheckStates[service.id]?.isChecking != true else { return }
 
         let requestID = (updateCheckStates[service.id]?.requestID ?? 0) + 1
         updateCheckStates[service.id] = CustomServiceUpdateCheckState(isChecking: true, requestID: requestID, message: nil)
 
+        // Snapshot fields needed to detect the installed version off the main actor.
+        let versionCommand = service.effectiveVersionCommand
+        let workingDirectory = service.workingDirectory
+        let environment = service.environment
+
         Task {
+            // Detect the installed version (best-effort) in parallel with the
+            // GitHub release lookup.
+            async let detected = Self.detectVersion(
+                command: versionCommand,
+                workingDirectory: workingDirectory,
+                environment: environment
+            )
+
+            let existingEtag = services[index].updateStatus?.etag
+            let githubToken = KeychainHelper.getGitHubToken()
             do {
-                let status = try await CustomServiceUpdateService.shared.checkLatestRelease(for: repository)
+                let outcome = try await CustomServiceUpdateService.shared.checkLatestRelease(
+                    for: repository,
+                    etag: existingEtag,
+                    token: githubToken
+                )
+                let detectedVersion = await detected
                 await MainActor.run {
                     guard self.updateCheckStates[service.id]?.requestID == requestID else { return }
-                    self.applyUpdateStatus(status, to: service.id)
+                    self.rateLimitedUntil = nil
+                    if let detectedVersion {
+                        self.setDetectedVersion(detectedVersion, for: service.id)
+                    }
+                    switch outcome {
+                    case .updated(let status):
+                        self.applyUpdateStatus(status, to: service.id)
+                    case .notModified:
+                        // Nothing changed on GitHub; just refresh the check time.
+                        self.markChecked(service.id)
+                    }
+                    // Clear the transient banner so the row shows the real outcome
+                    // ("up to date" / "new version X" / "ignored"), not a useless
+                    // "check complete" message.
                     self.updateCheckStates[service.id] = CustomServiceUpdateCheckState(
                         isChecking: false,
                         requestID: requestID,
-                        message: "custom.service.update.checkSuccess".localized()
+                        message: nil
                     )
                 }
             } catch {
+                let detectedVersion = await detected
                 await MainActor.run {
                     guard self.updateCheckStates[service.id]?.requestID == requestID else { return }
+                    if let detectedVersion {
+                        self.setDetectedVersion(detectedVersion, for: service.id)
+                    }
+                    if let updateError = error as? CustomServiceUpdateError,
+                       case .rateLimited(let reset) = updateError {
+                        // Pause automatic checks until the limit resets.
+                        self.rateLimitedUntil = reset ?? Date().addingTimeInterval(3600)
+                    }
                     let message = Self.updateErrorMessage(error)
                     self.applyUpdateError(message, repository: repository.slug, to: service.id)
                     self.updateCheckStates[service.id] = CustomServiceUpdateCheckState(
                         isChecking: false,
                         requestID: requestID,
-                        message: message
+                        message: silent ? nil : message
                     )
                 }
             }
+        }
+    }
+
+    /// Run the version-detection command off the main actor and extract a version.
+    private static func detectVersion(
+        command: String?,
+        workingDirectory: String?,
+        environment: [String: String]
+    ) async -> String? {
+        guard let command else { return nil }
+        return await Task.detached(priority: .utility) {
+            let result = CustomServiceCommandRunner.run(
+                commandLine: command,
+                workingDirectory: workingDirectory,
+                environment: environment,
+                timeout: 10
+            )
+            guard !result.timedOut else { return nil }
+            return VersionExtractor.extract(from: result.output)
+        }.value
+    }
+
+    private func setDetectedVersion(_ version: String, for id: UUID) {
+        guard let index = services.firstIndex(where: { $0.id == id }) else { return }
+        guard services[index].currentVersion != version else { return }
+        services[index].currentVersion = version
+        persist()
+    }
+
+    /// Refresh the last-checked time on an unchanged (304) result.
+    private func markChecked(_ id: UUID) {
+        guard let index = services.firstIndex(where: { $0.id == id }) else { return }
+        guard var status = services[index].updateStatus else { return }
+        status.lastCheckedAt = Date()
+        status.errorMessage = nil
+        services[index].updateStatus = status
+        persist()
+    }
+
+    /// Run the configured update command, then re-check version and release.
+    func performUpdate(_ service: CustomService) {
+        guard let updateCommand = service.normalizedUpdateCommand else { return }
+        guard updateCheckStates[service.id]?.isUpdating != true else { return }
+
+        let requestID = (updateCheckStates[service.id]?.requestID ?? 0) + 1
+        updateCheckStates[service.id] = CustomServiceUpdateCheckState(
+            isChecking: false,
+            isUpdating: true,
+            requestID: requestID,
+            message: "custom.service.update.updating".localized()
+        )
+
+        let workingDirectory = service.workingDirectory
+        let environment = service.environment
+        let id = service.id
+
+        appendLog(id, text: "$ " + updateCommand, isError: false)
+
+        Task {
+            let result = await Task.detached(priority: .utility) {
+                CustomServiceCommandRunner.run(
+                    commandLine: updateCommand,
+                    workingDirectory: workingDirectory,
+                    environment: environment,
+                    timeout: 300
+                )
+            }.value
+
+            await MainActor.run {
+                guard self.updateCheckStates[id]?.requestID == requestID else { return }
+                if !result.output.isEmpty {
+                    self.appendLog(id, text: result.output, isError: result.exitCode != 0)
+                }
+                let success = result.exitCode == 0 && !result.timedOut
+                self.updateCheckStates[id] = CustomServiceUpdateCheckState(
+                    isChecking: false,
+                    isUpdating: false,
+                    requestID: requestID,
+                    message: success
+                        ? "custom.service.update.updateSuccess".localized()
+                        : "custom.service.update.updateFailed".localized()
+                )
+                // Refresh installed version + release info after a successful update.
+                if success, let refreshed = self.services.first(where: { $0.id == id }) {
+                    self.checkForUpdates(refreshed, silent: true)
+                }
+            }
+        }
+    }
+
+    /// Check every service that has a configured repository.
+    /// - Parameter force: when false, services checked very recently are skipped
+    ///   to conserve the unauthenticated GitHub rate limit.
+    func checkAllForUpdates(force: Bool = false) {
+        // Respect a rate-limit cooldown for automatic runs.
+        if !force, let until = rateLimitedUntil, Date() < until { return }
+
+        let now = Date()
+        // Skip services checked within the last 30 minutes for scheduled runs.
+        let minInterval: TimeInterval = 30 * 60
+
+        for service in services where service.githubRepository != nil {
+            if !force,
+               let lastChecked = service.updateStatus?.lastCheckedAt,
+               now.timeIntervalSince(lastChecked) < minInterval {
+                continue
+            }
+            checkForUpdates(service, silent: true)
         }
     }
 
@@ -212,6 +406,33 @@ final class CustomServiceManager {
         guard let urlString = service.updateStatus?.latestReleaseURL,
               let url = URL(string: urlString) else { return }
         NSWorkspace.shared.open(url)
+    }
+
+    /// Skip the currently discovered release so it stops being flagged as available.
+    func ignoreLatestVersion(for service: CustomService) {
+        guard let index = services.firstIndex(where: { $0.id == service.id }) else { return }
+        guard let latest = services[index].updateStatus?.latestVersion,
+              !latest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        services[index].ignoredVersion = latest
+        persist()
+    }
+
+    /// Clear a previously skipped version so its update is flagged again.
+    func clearIgnoredVersion(for service: CustomService) {
+        guard let index = services.firstIndex(where: { $0.id == service.id }) else { return }
+        services[index].ignoredVersion = nil
+        persist()
+    }
+
+    /// Adopt the latest discovered release as the current installed version.
+    /// Useful after the user has updated the underlying tool.
+    func markLatestAsCurrent(for service: CustomService) {
+        guard let index = services.firstIndex(where: { $0.id == service.id }) else { return }
+        guard let latest = services[index].updateStatus?.latestVersion,
+              !latest.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        services[index].currentVersion = latest
+        services[index].ignoredVersion = nil
+        persist()
     }
 
     private func applyUpdateStatus(_ status: CustomServiceUpdateStatus, to id: UUID) {
@@ -244,6 +465,43 @@ final class CustomServiceManager {
             errorMessage: message
         )
         persist()
+    }
+
+    // MARK: - Automatic update checks
+
+    /// Kick off automatic update checking. Called once during app initialization.
+    /// Performs an initial check shortly after launch, then reschedules a
+    /// repeating timer based on the configured interval.
+    func startAutoUpdateChecks() {
+        reconfigureAutoUpdateChecks(runInitialCheck: true)
+    }
+
+    /// (Re)configure the auto-check timer. Call after the enabled flag or
+    /// interval changes in settings.
+    func reconfigureAutoUpdateChecks(runInitialCheck: Bool = false) {
+        autoCheckTimer?.invalidate()
+        autoCheckTimer = nil
+
+        guard autoCheckEnabled else { return }
+
+        if runInitialCheck {
+            // Delay slightly so it doesn't compete with launch work.
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 5 * NSEC_PER_SEC)
+                guard self.autoCheckEnabled else { return }
+                self.checkAllForUpdates()
+            }
+        }
+
+        let interval = TimeInterval(autoCheckIntervalHours) * 3600
+        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.checkAllForUpdates()
+            }
+        }
+        timer.tolerance = interval * 0.1
+        RunLoop.main.add(timer, forMode: .common)
+        autoCheckTimer = timer
     }
 
     // MARK: - Lifecycle

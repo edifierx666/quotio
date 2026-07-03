@@ -21,6 +21,9 @@ struct CustomServiceEditorSheet: View {
     @State private var autoStart: Bool
     @State private var githubRepository: String
     @State private var githubRepositoryError: String?
+    @State private var currentVersion: String
+    @State private var versionCommand: String
+    @State private var updateCommand: String
     @State private var envEntries: [EnvEntry]
 
     init(service: CustomService?, onSave: @escaping (CustomService) -> Void) {
@@ -35,6 +38,9 @@ struct CustomServiceEditorSheet: View {
             _autoStart = State(initialValue: service.autoStart)
             _githubRepository = State(initialValue: service.githubRepository ?? "")
             _githubRepositoryError = State(initialValue: nil)
+            _currentVersion = State(initialValue: service.currentVersion ?? "")
+            _versionCommand = State(initialValue: service.versionCommand ?? "")
+            _updateCommand = State(initialValue: service.updateCommand ?? "")
             _envEntries = State(
                 initialValue: service.environment
                     .sorted { $0.key < $1.key }
@@ -48,6 +54,9 @@ struct CustomServiceEditorSheet: View {
             _autoStart = State(initialValue: false)
             _githubRepository = State(initialValue: "")
             _githubRepositoryError = State(initialValue: nil)
+            _currentVersion = State(initialValue: "")
+            _versionCommand = State(initialValue: "")
+            _updateCommand = State(initialValue: "")
             _envEntries = State(initialValue: [])
         }
     }
@@ -195,6 +204,42 @@ struct CustomServiceEditorSheet: View {
                         .foregroundStyle(.red)
                 }
             }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("custom.service.field.versionCommand".localized())
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                TextField("custom.service.field.versionCommand.placeholder".localized(), text: $versionCommand)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                Text("custom.service.field.versionCommand.help".localized())
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("custom.service.field.updateCommand".localized())
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                TextField("custom.service.field.updateCommand.placeholder".localized(), text: $updateCommand)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                Text("custom.service.field.updateCommand.help".localized())
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("custom.service.field.currentVersion".localized())
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                TextField("custom.service.field.currentVersion.placeholder".localized(), text: $currentVersion)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                Text("custom.service.field.currentVersion.help".localized())
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -312,7 +357,13 @@ struct CustomServiceEditorSheet: View {
             return
         }
 
-        let preservedUpdateStatus = normalizedRepository == service?.githubRepository ? service?.updateStatus : nil
+        let repositoryUnchanged = normalizedRepository == service?.githubRepository
+        let preservedUpdateStatus = repositoryUnchanged ? service?.updateStatus : nil
+        let preservedIgnoredVersion = repositoryUnchanged ? service?.ignoredVersion : nil
+
+        let trimmedCurrentVersion = currentVersion.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedVersionCommand = versionCommand.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedUpdateCommand = updateCommand.trimmingCharacters(in: .whitespacesAndNewlines)
 
         let result = CustomService(
             id: service?.id ?? UUID(),
@@ -323,6 +374,10 @@ struct CustomServiceEditorSheet: View {
             showInMenuBar: showInMenuBar,
             autoStart: autoStart,
             githubRepository: normalizedRepository,
+            currentVersion: trimmedCurrentVersion.isEmpty ? nil : trimmedCurrentVersion,
+            ignoredVersion: preservedIgnoredVersion,
+            versionCommand: trimmedVersionCommand.isEmpty ? nil : trimmedVersionCommand,
+            updateCommand: trimmedUpdateCommand.isEmpty ? nil : trimmedUpdateCommand,
             updateStatus: preservedUpdateStatus
         )
 

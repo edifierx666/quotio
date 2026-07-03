@@ -1500,6 +1500,12 @@ private struct MenuCustomServiceRow: View {
 
                 Spacer()
 
+                if service.updateStatus?.hasRelease == true {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.blue)
+                }
+
                 Image(systemName: status.isActive ? "stop.fill" : "play.fill")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)

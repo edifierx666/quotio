@@ -60,6 +60,9 @@ final class CustomServiceManager {
     /// Runtime status keyed by service id.
     private(set) var runtimes: [UUID: CustomServiceRuntime] = [:]
 
+    /// Release check state keyed by service id.
+    private(set) var updateCheckStates: [UUID: CustomServiceUpdateCheckState] = [:]
+
     /// Live log stores keyed by service id.
     @ObservationIgnored private var logStores: [UUID: CustomServiceLogStore] = [:]
 
@@ -101,7 +104,14 @@ final class CustomServiceManager {
 
     func updateService(_ service: CustomService) {
         guard let index = services.firstIndex(where: { $0.id == service.id }) else { return }
-        services[index] = service
+        let existing = services[index]
+        var updated = service
+        if updated.githubRepository == existing.githubRepository {
+            updated.updateStatus = service.updateStatus ?? existing.updateStatus
+        } else {
+            updated.updateStatus = nil
+        }
+        services[index] = updated
         persist()
     }
 
@@ -111,6 +121,7 @@ final class CustomServiceManager {
         }
         services.removeAll { $0.id == service.id }
         runtimes[service.id] = nil
+        updateCheckStates[service.id] = nil
         logStores[service.id] = nil
         processes[service.id] = nil
         persist()
@@ -145,8 +156,94 @@ final class CustomServiceManager {
         return store
     }
 
+    func updateCheckState(for id: UUID) -> CustomServiceUpdateCheckState {
+        updateCheckStates[id] ?? CustomServiceUpdateCheckState()
+    }
+
     var menuBarServices: [CustomService] {
         services.filter(\.showInMenuBar)
+    }
+
+    // MARK: - Updates
+
+    func checkForUpdates(_ service: CustomService) {
+        guard let index = services.firstIndex(where: { $0.id == service.id }) else { return }
+        guard let repositoryText = services[index].githubRepository,
+              let repository = GitHubRepository.normalize(repositoryText) else {
+            updateCheckStates[service.id] = CustomServiceUpdateCheckState(
+                isChecking: false,
+                requestID: (updateCheckStates[service.id]?.requestID ?? 0) + 1,
+                message: "custom.service.update.error.invalidRepository".localized()
+            )
+            return
+        }
+
+        let requestID = (updateCheckStates[service.id]?.requestID ?? 0) + 1
+        updateCheckStates[service.id] = CustomServiceUpdateCheckState(isChecking: true, requestID: requestID, message: nil)
+
+        Task {
+            do {
+                let status = try await CustomServiceUpdateService.shared.checkLatestRelease(for: repository)
+                await MainActor.run {
+                    guard self.updateCheckStates[service.id]?.requestID == requestID else { return }
+                    self.applyUpdateStatus(status, to: service.id)
+                    self.updateCheckStates[service.id] = CustomServiceUpdateCheckState(
+                        isChecking: false,
+                        requestID: requestID,
+                        message: "custom.service.update.checkSuccess".localized()
+                    )
+                }
+            } catch {
+                await MainActor.run {
+                    guard self.updateCheckStates[service.id]?.requestID == requestID else { return }
+                    let message = Self.updateErrorMessage(error)
+                    self.applyUpdateError(message, repository: repository.slug, to: service.id)
+                    self.updateCheckStates[service.id] = CustomServiceUpdateCheckState(
+                        isChecking: false,
+                        requestID: requestID,
+                        message: message
+                    )
+                }
+            }
+        }
+    }
+
+    func openLatestRelease(for service: CustomService) {
+        guard let urlString = service.updateStatus?.latestReleaseURL,
+              let url = URL(string: urlString) else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    private func applyUpdateStatus(_ status: CustomServiceUpdateStatus, to id: UUID) {
+        guard let index = services.firstIndex(where: { $0.id == id }) else { return }
+        services[index].githubRepository = status.repository
+        services[index].updateStatus = status
+        persist()
+    }
+
+    private static func updateErrorMessage(_ error: Error) -> String {
+        if let updateError = error as? CustomServiceUpdateError {
+            if let statusCode = updateError.statusCode {
+                return String(format: updateError.messageKey.localized(), statusCode)
+            }
+            return updateError.messageKey.localized()
+        }
+        return error.localizedDescription
+    }
+
+    private func applyUpdateError(_ message: String, repository: String, to id: UUID) {
+        guard let index = services.firstIndex(where: { $0.id == id }) else { return }
+        let previous = services[index].updateStatus
+        services[index].updateStatus = CustomServiceUpdateStatus(
+            repository: repository,
+            latestVersion: previous?.latestVersion ?? "",
+            latestReleaseTitle: previous?.latestReleaseTitle ?? "",
+            latestReleaseURL: previous?.latestReleaseURL ?? "",
+            latestPublishedAt: previous?.latestPublishedAt,
+            lastCheckedAt: Date(),
+            errorMessage: message
+        )
+        persist()
     }
 
     // MARK: - Lifecycle

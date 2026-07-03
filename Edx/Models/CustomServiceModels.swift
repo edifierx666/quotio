@@ -28,6 +28,10 @@ struct CustomService: Codable, Identifiable, Sendable, Hashable {
     var showInMenuBar: Bool
     /// Whether the service is started automatically when the app launches.
     var autoStart: Bool
+    /// Optional GitHub repository slug (`owner/repo`) used for release checks.
+    var githubRepository: String?
+    /// Latest release information discovered for this service.
+    var updateStatus: CustomServiceUpdateStatus?
 
     init(
         id: UUID = UUID(),
@@ -36,7 +40,9 @@ struct CustomService: Codable, Identifiable, Sendable, Hashable {
         workingDirectory: String? = nil,
         environment: [String: String] = [:],
         showInMenuBar: Bool = true,
-        autoStart: Bool = false
+        autoStart: Bool = false,
+        githubRepository: String? = nil,
+        updateStatus: CustomServiceUpdateStatus? = nil
     ) {
         self.id = id
         self.name = name
@@ -45,6 +51,8 @@ struct CustomService: Codable, Identifiable, Sendable, Hashable {
         self.environment = environment
         self.showInMenuBar = showInMenuBar
         self.autoStart = autoStart
+        self.githubRepository = githubRepository
+        self.updateStatus = updateStatus
     }
 
     enum CodingKeys: String, CodingKey {
@@ -55,6 +63,8 @@ struct CustomService: Codable, Identifiable, Sendable, Hashable {
         case environment
         case showInMenuBar = "show_in_menu_bar"
         case autoStart = "auto_start"
+        case githubRepository = "github_repository"
+        case updateStatus = "update_status"
     }
 
     // Provide defaults for fields that may be missing in older persisted data.
@@ -67,6 +77,8 @@ struct CustomService: Codable, Identifiable, Sendable, Hashable {
         self.environment = try container.decodeIfPresent([String: String].self, forKey: .environment) ?? [:]
         self.showInMenuBar = try container.decodeIfPresent(Bool.self, forKey: .showInMenuBar) ?? true
         self.autoStart = try container.decodeIfPresent(Bool.self, forKey: .autoStart) ?? false
+        self.githubRepository = try container.decodeIfPresent(String.self, forKey: .githubRepository)
+        self.updateStatus = try container.decodeIfPresent(CustomServiceUpdateStatus.self, forKey: .updateStatus)
     }
 
     /// The first token of the command, i.e. the executable name or path.
@@ -75,7 +87,42 @@ struct CustomService: Codable, Identifiable, Sendable, Hashable {
     }
 }
 
+// MARK: - Update Status
+
+/// Latest GitHub release check result for a custom service.
+struct CustomServiceUpdateStatus: Codable, Sendable, Hashable {
+    var repository: String
+    var latestVersion: String
+    var latestReleaseTitle: String
+    var latestReleaseURL: String
+    var latestPublishedAt: Date?
+    var lastCheckedAt: Date
+    var errorMessage: String?
+
+    var hasRelease: Bool {
+        !latestVersion.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !latestReleaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case repository
+        case latestVersion = "latest_version"
+        case latestReleaseTitle = "latest_release_title"
+        case latestReleaseURL = "latest_release_url"
+        case latestPublishedAt = "latest_published_at"
+        case lastCheckedAt = "last_checked_at"
+        case errorMessage = "error_message"
+    }
+}
+
 // MARK: - Runtime State
+
+/// Transient release check state used by the UI while a check is in flight.
+struct CustomServiceUpdateCheckState: Sendable, Equatable {
+    var isChecking: Bool = false
+    var requestID: Int = 0
+    var message: String?
+}
 
 /// Lifecycle state of a managed custom service process.
 enum CustomServiceStatus: Sendable, Equatable {

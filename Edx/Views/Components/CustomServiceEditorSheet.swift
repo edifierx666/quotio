@@ -19,6 +19,8 @@ struct CustomServiceEditorSheet: View {
     @State private var workingDirectory: String
     @State private var showInMenuBar: Bool
     @State private var autoStart: Bool
+    @State private var githubRepository: String
+    @State private var githubRepositoryError: String?
     @State private var envEntries: [EnvEntry]
 
     init(service: CustomService?, onSave: @escaping (CustomService) -> Void) {
@@ -31,6 +33,8 @@ struct CustomServiceEditorSheet: View {
             _workingDirectory = State(initialValue: service.workingDirectory ?? "")
             _showInMenuBar = State(initialValue: service.showInMenuBar)
             _autoStart = State(initialValue: service.autoStart)
+            _githubRepository = State(initialValue: service.githubRepository ?? "")
+            _githubRepositoryError = State(initialValue: nil)
             _envEntries = State(
                 initialValue: service.environment
                     .sorted { $0.key < $1.key }
@@ -42,6 +46,8 @@ struct CustomServiceEditorSheet: View {
             _workingDirectory = State(initialValue: "")
             _showInMenuBar = State(initialValue: true)
             _autoStart = State(initialValue: false)
+            _githubRepository = State(initialValue: "")
+            _githubRepositoryError = State(initialValue: nil)
             _envEntries = State(initialValue: [])
         }
     }
@@ -61,6 +67,7 @@ struct CustomServiceEditorSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     basicSection
+                    updateSection
                     environmentSection
                     optionsSection
                 }
@@ -158,6 +165,34 @@ struct CustomServiceEditorSheet: View {
                     Button("custom.service.field.workingDir.choose".localized()) {
                         chooseWorkingDirectory()
                     }
+                }
+            }
+        }
+    }
+
+    // MARK: - Update Section
+
+    private var updateSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionTitle("custom.service.editor.updates".localized())
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("custom.service.field.githubRepository".localized())
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                TextField("custom.service.field.githubRepository.placeholder".localized(), text: $githubRepository)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(.body, design: .monospaced))
+                    .onChange(of: githubRepository) { _, _ in
+                        githubRepositoryError = nil
+                    }
+                Text("custom.service.field.githubRepository.help".localized())
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                if let githubRepositoryError {
+                    Text(githubRepositoryError)
+                        .font(.caption2)
+                        .foregroundStyle(.red)
                 }
             }
         }
@@ -266,6 +301,18 @@ struct CustomServiceEditorSheet: View {
         }
 
         let trimmedDir = workingDirectory.trimmingCharacters(in: .whitespaces)
+        let trimmedRepository = githubRepository.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedRepository: String?
+        if trimmedRepository.isEmpty {
+            normalizedRepository = nil
+        } else if let repository = GitHubRepository.normalize(trimmedRepository) {
+            normalizedRepository = repository.slug
+        } else {
+            githubRepositoryError = "custom.service.update.error.invalidRepository".localized()
+            return
+        }
+
+        let preservedUpdateStatus = normalizedRepository == service?.githubRepository ? service?.updateStatus : nil
 
         let result = CustomService(
             id: service?.id ?? UUID(),
@@ -274,7 +321,9 @@ struct CustomServiceEditorSheet: View {
             workingDirectory: trimmedDir.isEmpty ? nil : trimmedDir,
             environment: environment,
             showInMenuBar: showInMenuBar,
-            autoStart: autoStart
+            autoStart: autoStart,
+            githubRepository: normalizedRepository,
+            updateStatus: preservedUpdateStatus
         )
 
         onSave(result)

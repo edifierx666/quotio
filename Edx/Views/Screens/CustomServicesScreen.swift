@@ -96,6 +96,8 @@ struct CustomServicesScreen: View {
                             openEditor(for: service)
                         },
                         onLogs: { logViewerService = service },
+                        onCheckUpdates: { manager.checkForUpdates(service) },
+                        onOpenRelease: { manager.openLatestRelease(for: service) },
                         onDelete: { serviceToDelete = service }
                     )
                 }
@@ -138,6 +140,8 @@ private struct CustomServiceRow: View {
     let onToggle: () -> Void
     let onEdit: () -> Void
     let onLogs: () -> Void
+    let onCheckUpdates: () -> Void
+    let onOpenRelease: () -> Void
     let onDelete: () -> Void
 
     @State private var manager = CustomServiceManager.shared
@@ -173,6 +177,13 @@ private struct CustomServiceRow: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
+
+                if let updateText {
+                    Text(updateText)
+                        .font(.caption2)
+                        .foregroundStyle(updateColor)
+                        .lineLimit(1)
+                }
 
                 Text(statusText)
                     .font(.caption2)
@@ -215,6 +226,23 @@ private struct CustomServiceRow: View {
         .buttonStyle(.borderless)
         .help("custom.service.viewLogs".localized())
 
+        if service.githubRepository != nil {
+            Button(action: onCheckUpdates) {
+                Image(systemName: updateCheckState.isChecking ? "arrow.triangle.2.circlepath" : "arrow.down.circle")
+            }
+            .buttonStyle(.borderless)
+            .disabled(updateCheckState.isChecking)
+            .help("custom.service.update.check".localized())
+        }
+
+        if service.updateStatus?.hasRelease == true {
+            Button(action: onOpenRelease) {
+                Image(systemName: "arrow.up.right.square")
+            }
+            .buttonStyle(.borderless)
+            .help("custom.service.update.openRelease".localized())
+        }
+
         Button(action: onEdit) {
             Image(systemName: "pencil")
         }
@@ -227,6 +255,32 @@ private struct CustomServiceRow: View {
         }
         .buttonStyle(.borderless)
         .help("action.delete".localized())
+    }
+
+    private var updateCheckState: CustomServiceUpdateCheckState {
+        manager.updateCheckState(for: service.id)
+    }
+
+    private var updateText: String? {
+        if updateCheckState.isChecking {
+            return "custom.service.update.checking".localized()
+        }
+        if let message = updateCheckState.message, !message.isEmpty {
+            return message
+        }
+        if let error = service.updateStatus?.errorMessage, !error.isEmpty {
+            return error
+        }
+        guard let updateStatus = service.updateStatus, updateStatus.hasRelease else {
+            return service.githubRepository == nil ? nil : "custom.service.update.notChecked".localized()
+        }
+        return String(format: "custom.service.update.available".localized(), updateStatus.latestVersion)
+    }
+
+    private var updateColor: Color {
+        if updateCheckState.isChecking { return .secondary }
+        if updateCheckState.message != nil || service.updateStatus?.errorMessage != nil { return .orange }
+        return service.updateStatus?.hasRelease == true ? .blue : .secondary
     }
 
     private var statusColor: Color {

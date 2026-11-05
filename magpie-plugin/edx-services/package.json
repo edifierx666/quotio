@@ -1,0 +1,44 @@
+{
+  "name": "magpie-edx-services",
+  "version": "0.1.0",
+  "description": "Edx custom services for magpie: run, supervise and update long-running local commands",
+  "type": "module",
+  "main": "./index.mjs",
+  "files": [
+    "index.mjs",
+    "lib",
+    "page",
+    "web",
+    "README.md"
+  ],
+  "keywords": [
+    "magpie-plugin",
+    "opencode-plugin",
+    "services"
+  ],
+  "license": "MIT",
+  "scripts": {
+    "test": "bun test"
+  },
+  "magpie": {
+    "name": "Edx 自定义服务",
+    "summary": {
+      "en": "Run, supervise and update long-running local commands.",
+      "zh": "运行、守护和更新长期运行的本地命令。"
+    },
+    "page": {
+      "title": "Custom Services",
+      "titles": {
+        "zh": "自定义服务",
+        "zh-TW": "自訂服務"
+      },
+      "file": "page/index.html",
+      "icon": "page/icon.svg",
+      "service": {
+        "port": 3427,
+        "option": "port"
+      }
+    },
+    "permissions": []
+  }
+}

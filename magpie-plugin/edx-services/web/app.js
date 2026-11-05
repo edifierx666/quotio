@@ -582,84 +582,6 @@ function openEditor(svc) {
   })
 }
 
-// ---- 导入 ---------------------------------------------------------------------
-
-let importable = 0
-
-async function refreshImportable() {
-  try {
-    const { candidates } = await api("GET", "api/import-edx")
-    importable = candidates.filter((c) => !c.imported).length
-  } catch {
-    importable = 0
-  }
-  $("#btn-import").hidden = importable === 0
-  $("#empty-import").hidden = importable === 0
-}
-
-async function openImport() {
-  let candidates
-  try {
-    ;({ candidates } = await api("GET", "api/import-edx"))
-  } catch (e) {
-    toast(e.message, true)
-    return
-  }
-  const boxes = []
-  const list = h(
-    "ul",
-    { class: "import-list" },
-    candidates.map((c) => {
-      const box = h("input", { type: "checkbox", checked: !c.imported, disabled: c.imported })
-      box.dataset.id = c.edxId ?? ""
-      if (!c.imported) boxes.push(box)
-      return h(
-        "li",
-        null,
-        h("label", null, box, h("span", { class: "name", text: c.name }), c.imported ? h("span", { class: "pill", text: t("import.done") }) : null, h("span", { class: "cmd", text: c.command, title: c.command })),
-      )
-    }),
-  )
-  const action = h("button", { type: "button", class: "primary" })
-  const cancel = h("button", { type: "button", text: t("form.cancel") })
-  const err = h("span", { class: "form-error", role: "alert" })
-  const sync = () => {
-    const n = boxes.filter((b) => b.checked).length
-    action.textContent = t("import.action", n)
-    action.dataset.locked = n === 0 ? "1" : "0"
-    action.disabled = n === 0
-  }
-  boxes.forEach((b) => b.addEventListener("change", sync))
-  sync()
-  let working = false
-  const d = openDialog({
-    title: t("import.title"),
-    body: candidates.length ? [list, h("p", { class: "muted small", style: "margin:0", text: t("import.note") })] : h("p", { class: "muted", style: "margin:0", text: t("import.none") }),
-    footer: [err, cancel, candidates.length ? action : null],
-    onEscape: () => !working && d.close(),
-    canDismiss: () => !working,
-  })
-  cancel.onclick = () => !working && d.close()
-  action.onclick = async () => {
-    const ids = boxes.filter((b) => b.checked).map((b) => b.dataset.id)
-    if (!ids.length || working) return
-    working = true
-    setBusy(action, true)
-    try {
-      const r = await api("POST", "api/import-edx", { ids })
-      d.close()
-      toast(t("import.added", r.added.length))
-      await refresh()
-      await refreshImportable()
-    } catch (e) {
-      err.textContent = e.message
-    } finally {
-      working = false
-      setBusy(action, false)
-    }
-  }
-}
-
 // ---- 服务卡片 ---------------------------------------------------------------------
 
 let state = null
@@ -1665,8 +1587,6 @@ function init() {
   $("#title").textContent = t("title")
   $("#btn-new").textContent = t("new")
   $("#empty-new").textContent = t("new")
-  $("#btn-import").textContent = t("importEdx")
-  $("#empty-import").textContent = t("importEdx")
   $("#empty-title").textContent = t("empty.title")
   $("#empty-hint").textContent = t("empty.hint")
   for (const [sel, label] of [["#btn-check", "checkAll"], ["#btn-settings", "settings"]]) {
@@ -1682,8 +1602,6 @@ function init() {
   document.body.dataset.tab = "services"
   $("#btn-new").onclick = () => (tab === "tunnels" ? openTunnelDialog() : openEditor(null))
   $("#empty-new").onclick = () => openEditor(null)
-  $("#btn-import").onclick = openImport
-  $("#empty-import").onclick = openImport
   $("#btn-settings").onclick = () => showMenu($("#btn-settings"), settingsMenu())
   $("#btn-check").onclick = async () => {
     const btn = $("#btn-check")
@@ -1700,10 +1618,7 @@ function init() {
   }
   document.addEventListener("visibilitychange", () => !document.hidden && refresh())
 
-  refresh().then(() => {
-    schedule()
-    if (!stopped) refreshImportable()
-  })
+  refresh().then(schedule)
 }
 
 init()

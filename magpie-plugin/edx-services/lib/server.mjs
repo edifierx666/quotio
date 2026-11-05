@@ -170,13 +170,6 @@ export function startServer({ manager, port, directory, options }) {
       await openURL(target)
       return json({ ok: true })
     }
-    if (a === "import-edx") {
-      if (m === "GET") return json({ candidates: await manager.edxCandidates() })
-      if (m === "POST") {
-        const { ids } = await body(req)
-        return json({ added: await manager.importFromEdx(ids), state: manager.state() })
-      }
-    }
     if (a === "services") {
       if (!id) {
         if (m === "POST") return json(manager.create(await body(req)))

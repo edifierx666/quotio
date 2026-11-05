@@ -7,7 +7,7 @@ import fs from "node:fs"
 import os from "node:os"
 import { spawn, execFile } from "node:child_process"
 import { randomUUID } from "node:crypto"
-import { Store, normalizeService, readEdxServices } from "./store.mjs"
+import { Store, normalizeService } from "./store.mjs"
 import * as proc from "./process.mjs"
 import { TunnelManager } from "./tunnel.mjs"
 import { checkLatestRelease, isPlausibleToken, resolveToken, setConfiguredToken, verifyToken } from "./github.mjs"
@@ -152,7 +152,7 @@ export class ServiceManager {
     if (idx < 0) throw new Error("服务不存在")
     const prev = this.store.services[idx]
     // 运行时字段（更新状态、忽略版本、导入来源）不由编辑表单覆盖
-    const next = normalizeService({ ...prev, ...input, id, updateStatus: prev.updateStatus, ignoredVersion: prev.ignoredVersion, importedFrom: prev.importedFrom })
+    const next = normalizeService({ ...prev, ...input, id, updateStatus: prev.updateStatus, ignoredVersion: prev.ignoredVersion })
     this.validate(next)
     // 仓库变了，旧的 Release 缓存与 ETag 不再适用
     if (normalizeRepository(next.githubRepository) !== normalizeRepository(prev.githubRepository)) {
@@ -170,7 +170,7 @@ export class ServiceManager {
     let name = `${src.name} 副本`
     for (let n = 2; this.store.services.some((s) => s.name.toLowerCase() === name.toLowerCase()); n++) name = `${src.name} 副本 ${n}`
     // 不复制运行状态、已忽略版本、远端更新缓存；副本默认不自动启动（与 Edx 一致）
-    const copy = normalizeService({ ...src, name, autoStart: false, ignoredVersion: null, updateStatus: null, importedFrom: null }, { keepId: false })
+    const copy = normalizeService({ ...src, name, autoStart: false, ignoredVersion: null, updateStatus: null }, { keepId: false })
     const idx = this.store.services.findIndex((s) => s.id === id)
     this.store.services.splice(idx + 1, 0, copy)
     this.store.save()
@@ -848,33 +848,5 @@ export class ServiceManager {
     const latest = trimmed(svc?.updateStatus?.latestVersion)
     if (latest) this.patchService(id, { currentVersion: latest, ignoredVersion: null })
     return this.view(id)
-  }
-
-  // ---- 从 Edx 导入 ----------------------------------------------------------------
-
-  async edxCandidates() {
-    const list = await readEdxServices()
-    const imported = new Set(this.store.services.map((s) => s.importedFrom).filter(Boolean))
-    return list.map((c) => ({ edxId: c.edxId, name: String(c.service.name ?? ""), command: String(c.service.command ?? ""), edxAutoStart: c.edxAutoStart, imported: !!c.edxId && imported.has(c.edxId) }))
-  }
-
-  async importFromEdx(edxIds) {
-    const list = await readEdxServices()
-    const imported = new Set(this.store.services.map((s) => s.importedFrom).filter(Boolean))
-    const wanted = Array.isArray(edxIds) && edxIds.length ? new Set(edxIds) : null
-    const added = []
-    for (const c of list) {
-      if (!c.edxId || imported.has(c.edxId)) continue
-      if (wanted && !wanted.has(c.edxId)) continue
-      const svc = normalizeService({ ...c.service, importedFrom: c.edxId }, { keepId: false })
-      if (!svc.name || !svc.command) continue
-      let name = svc.name
-      for (let n = 2; this.store.services.some((s) => s.name.toLowerCase() === name.toLowerCase()); n++) name = `${svc.name} (${n})`
-      svc.name = name
-      this.store.services.push(svc)
-      added.push(svc.name)
-    }
-    if (added.length) this.store.save()
-    return added
   }
 }

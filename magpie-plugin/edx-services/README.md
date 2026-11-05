@@ -73,19 +73,11 @@ brew install cloudflared
 
 <img src="docs/screenshots/04-update-available.png" alt="发现新版本" width="720">
 
-| 设置菜单 | GitHub 访问令牌 |
-| --- | --- |
-| <img src="docs/screenshots/06-settings-menu.png" alt="设置菜单" width="320"> | <img src="docs/screenshots/05-github-token.png" alt="GitHub 访问令牌" width="420"> |
-
 **分享到公网**：在服务的 ⋯ 菜单选「分享到公网…」，或切到「隧道」标签页填任意端口，点「开始分享」。地址出来后可以复制、在浏览器中打开或关闭隧道。
 
 | 分享到公网 | 隧道列表 |
 | --- | --- |
 | <img src="docs/screenshots/07-tunnel-share.png" alt="分享到公网" width="380"> | <img src="docs/screenshots/08-tunnels-list.png" alt="隧道列表" width="420"> |
-
-**已经在用 Edx 应用？** 点「从 Edx 导入」，勾选要搬过来的服务即可。导入后「随 magpie 启动」默认关闭，避免两边同时启动抢端口。
-
-<img src="docs/screenshots/09-import-edx.png" alt="从 Edx 导入" width="520">
 
 ## 配置项
 

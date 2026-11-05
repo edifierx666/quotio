@@ -3,10 +3,6 @@
 import fs from "node:fs"
 import path from "node:path"
 import { randomUUID } from "node:crypto"
-import { execFile } from "node:child_process"
-import { promisify } from "node:util"
-
-const run = promisify(execFile)
 
 export const DEFAULT_SETTINGS = Object.freeze({ autoCheck: true, intervalHours: 12 })
 const LEGACY_DEFAULT_INTERVAL = 6
@@ -58,7 +54,7 @@ function normalizeUpdateStatus(raw) {
   }
 }
 
-/** 数据进入系统的唯一归一化入口：API 请求体、磁盘文件、Edx 导入都经过这里。 */
+/** 数据进入系统的唯一归一化入口：API 请求体、磁盘文件都经过这里。 */
 export function normalizeService(raw, { keepId = true } = {}) {
   const src = raw && typeof raw === "object" ? raw : {}
   const id = keepId && typeof src.id === "string" && /^[A-Za-z0-9-]{8,64}$/.test(src.id) ? src.id : randomUUID()
@@ -82,7 +78,6 @@ export function normalizeService(raw, { keepId = true } = {}) {
     updateCommand: optStr(src.updateCommand)?.trim() ?? null,
     stopCommand: optStr(src.stopCommand)?.trim() ?? null,
     updateStatus: normalizeUpdateStatus(src.updateStatus),
-    importedFrom: optStr(src.importedFrom),
   }
 }
 
@@ -184,74 +179,4 @@ export class Store {
     this.save()
     return this.settings
   }
-}
-
-// ---- 从 Edx 导入 ----------------------------------------------------------
-
-const EDX_DOMAIN = "dev.edx.desktop"
-// Swift JSONEncoder 默认把 Date 编码为距 2001-01-01 的秒数
-const SWIFT_REFERENCE_EPOCH = 978307200
-
-function swiftDate(value) {
-  if (typeof value === "number" && Number.isFinite(value)) return new Date((value + SWIFT_REFERENCE_EPOCH) * 1000).toISOString()
-  if (typeof value === "string") return isoOrNull(value)
-  return null
-}
-
-/** 读取 Edx 保存在 UserDefaults 里的 customServices（JSON Data）。读不到时返回空数组。 */
-export async function readEdxServices() {
-  let base64
-  try {
-    // defaults export 把整个偏好域输出为 plist，plutil 取出 Data 字段的 base64
-    const exported = await run("/usr/bin/defaults", ["export", EDX_DOMAIN, "-"], { maxBuffer: 64 << 20 })
-    const child = execFile("/usr/bin/plutil", ["-extract", "customServices", "raw", "-o", "-", "-"], { maxBuffer: 64 << 20 })
-    const out = await new Promise((resolve, reject) => {
-      let buf = ""
-      child.stdout.on("data", (d) => (buf += d))
-      child.on("error", reject)
-      child.on("close", (code) => (code === 0 ? resolve(buf) : reject(new Error(`plutil exit ${code}`))))
-      child.stdin.end(exported.stdout)
-    })
-    base64 = out.trim()
-  } catch {
-    return []
-  }
-  let list
-  try {
-    list = JSON.parse(Buffer.from(base64, "base64").toString("utf8"))
-  } catch {
-    return []
-  }
-  if (!Array.isArray(list)) return []
-  return list.map((s) => ({
-    edxId: typeof s.id === "string" ? s.id : null,
-    service: {
-      name: s.name,
-      command: s.command,
-      workingDirectory: s.working_directory,
-      environment: s.environment,
-      showInMenuBar: s.show_in_menu_bar,
-      // 导入后默认不自动启动：Edx 可能仍在自动启动同一服务，两边同时启动会抢端口
-      autoStart: false,
-      githubRepository: s.github_repository,
-      currentVersion: s.current_version,
-      ignoredVersion: s.ignored_version,
-      versionCommand: s.version_command,
-      updateCommand: s.update_command,
-      stopCommand: s.stop_command,
-      updateStatus: s.update_status
-        ? {
-            repository: s.update_status.repository,
-            latestVersion: s.update_status.latest_version,
-            latestReleaseTitle: s.update_status.latest_release_title,
-            latestReleaseURL: s.update_status.latest_release_url,
-            latestPublishedAt: swiftDate(s.update_status.latest_published_at),
-            lastCheckedAt: swiftDate(s.update_status.last_checked_at),
-            errorMessage: s.update_status.error_message,
-            etag: s.update_status.etag,
-          }
-        : null,
-    },
-    edxAutoStart: s.auto_start === true,
-  }))
 }
